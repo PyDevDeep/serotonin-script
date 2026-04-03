@@ -58,7 +58,7 @@ async def slack_interactions(request: Request):
         raise HTTPException(status_code=400, detail="Missing payload")
 
     payload = json.loads(str(payload_str))
-    user_id = str(payload.get("user", {}).get("id", ""))  # Cast to str for Pylance
+    user_id = str(payload.get("user", {}).get("id", ""))
     interaction_type = payload.get("type")
 
     slack_token = (
@@ -72,120 +72,94 @@ async def slack_interactions(request: Request):
         action_id = action.get("action_id")
         response_url = payload.get("response_url")
 
-        if not response_url or not isinstance(response_url, str):
-            logger.warning("slack_interaction_no_response_url", action_id=action_id)
-            return Response(status_code=200)
-
-        blocks = payload.get("message", {}).get("blocks", [])
-        raw_draft = blocks[1]["text"]["text"] if len(blocks) > 1 else ""
-        draft_text = raw_draft.replace("```", "").strip()
-        topic = "Медичний пост"
-
-        # УСІ перевірки action_id мають бути всередині цього блоку
+        # --- ГРУПА 1: Дії, що відкривають модалки (response_url НЕ потрібен) ---
         if action_id == "action_open_upload_modal":
-            logger.info("slack_home_upload_btn_clicked", user_id=user_id)
             modal_view = build_upload_modal()
             async with httpx.AsyncClient() as client:
-                res = await client.post(
+                await client.post(
                     "https://slack.com/api/views.open",
                     headers=headers,
                     json={"trigger_id": trigger_id, "view": modal_view},
                 )
-                if not res.json().get("ok"):
-                    logger.error("slack_modal_error", error=res.json())
+            return Response(status_code=200)
 
-        elif action_id == "action_publish_draft":
-            logger.info("slack_draft_approved", user_id=user_id)
-            await publish_post_task.kiq(
-                post_id="temp_id", platform="telegram", content=draft_text
-            )
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    response_url,
-                    json={
-                        "replace_original": True,
-                        "text": SLACK_UI["interact_approved_text"],
-                        "blocks": [
-                            {
-                                "type": "section",
-                                "text": {
-                                    "type": "mrkdwn",
-                                    "text": SLACK_UI["interact_approved_section"],
-                                },
-                            }
-                        ],
-                    },
-                )
-
-        elif action_id == "action_reject_draft":
-            logger.info("slack_draft_rejected", user_id=user_id)
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    response_url,
-                    json={
-                        "replace_original": True,
-                        "text": SLACK_UI["interact_rejected_text"],
-                        "blocks": [
-                            {
-                                "type": "section",
-                                "text": {
-                                    "type": "mrkdwn",
-                                    "text": SLACK_UI["interact_rejected_section"],
-                                },
-                            }
-                        ],
-                    },
-                )
-
-        elif action_id == "action_edit_draft":
-            logger.info("slack_draft_edit_opened", user_id=user_id)
-            modal_view = build_approval_modal(
-                topic=topic, draft=draft_text, platform="telegram"
-            )
-            async with httpx.AsyncClient() as client:
-                res = await client.post(
-                    "https://slack.com/api/views.open",
-                    headers=headers,
-                    json={"trigger_id": trigger_id, "view": modal_view},
-                )
-                if not res.json().get("ok"):
-                    logger.error("slack_modal_error", error=res.json())
-
-        elif action_id == "action_regenerate_draft":
-            logger.info("slack_draft_regenerate", user_id=user_id)
-            channel_id = str(payload.get("channel", {}).get("id", ""))
-            await generate_draft_task.kiq(
-                topic=topic, platform="telegram", user_id=user_id, channel_id=channel_id
-            )  # type: ignore
-            async with httpx.AsyncClient() as client:
-                await client.post(
-                    response_url,
-                    json={
-                        "replace_original": True,
-                        "text": SLACK_UI["interact_regenerate_text"],
-                        "blocks": [
-                            {
-                                "type": "section",
-                                "text": {
-                                    "type": "mrkdwn",
-                                    "text": SLACK_UI["interact_regenerate_section"],
-                                },
-                            }
-                        ],
-                    },
-                )
-
-        elif action_id == "action_open_generation_modal":
-            logger.info("slack_home_generation_btn_clicked", user_id=user_id)
+        if action_id == "action_open_generation_modal":
             modal_view = build_generation_modal(channel_id=user_id)
             async with httpx.AsyncClient() as client:
-                res = await client.post(
+                await client.post(
                     "https://slack.com/api/views.open",
                     headers=headers,
                     json={"trigger_id": trigger_id, "view": modal_view},
                 )
-                if not res.json().get("ok"):
-                    logger.error("slack_modal_error", error=res.json())
+            return Response(status_code=200)
+
+        # --- ГРУПА 2: Дії з повідомленнями (response_url ОБОВ'ЯЗКОВИЙ) ---
+        if action_id in [
+            "action_publish_draft",
+            "action_reject_draft",
+            "action_edit_draft",
+            "action_regenerate_draft",
+        ]:
+            if not response_url:
+                logger.warning(
+                    "slack_interaction_missing_url_for_message_action",
+                    action_id=action_id,
+                )
+                return Response(status_code=200)
+
+            # Логіка парсингу тексту повідомлення
+            blocks = payload.get("message", {}).get("blocks", [])
+            raw_draft = blocks[1]["text"]["text"] if len(blocks) > 1 else ""
+            draft_text = raw_draft.replace("```", "").strip()
+            topic = "Медичний пост"
+
+            async with httpx.AsyncClient() as client:
+                if action_id == "action_publish_draft":
+                    await publish_post_task.kiq(
+                        post_id="temp_id", platform="telegram", content=draft_text
+                    )
+                    await client.post(
+                        response_url,
+                        json={
+                            "replace_original": True,
+                            "text": SLACK_UI["interact_approved_text"],
+                        },
+                    )
+
+                elif action_id == "action_reject_draft":
+                    await client.post(
+                        response_url,
+                        json={
+                            "replace_original": True,
+                            "text": SLACK_UI["interact_rejected_text"],
+                        },
+                    )
+
+                elif action_id == "action_edit_draft":
+                    modal_view = build_approval_modal(
+                        topic=topic, draft=draft_text, platform="telegram"
+                    )
+                    await client.post(
+                        "https://slack.com/api/views.open",
+                        headers=headers,
+                        json={"trigger_id": trigger_id, "view": modal_view},
+                    )
+
+                elif action_id == "action_regenerate_draft":
+                    channel_id = str(payload.get("channel", {}).get("id", ""))
+                    await generate_draft_task.kiq(  # type: ignore[call-overload]
+                        topic=topic,
+                        platform="telegram",
+                        user_id=user_id,
+                        channel_id=channel_id,
+                    )
+                    await client.post(
+                        response_url,
+                        json={
+                            "replace_original": True,
+                            "text": SLACK_UI["interact_regenerate_text"],
+                        },
+                    )
 
         return Response(status_code=200)
 
