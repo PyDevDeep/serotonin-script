@@ -11,3 +11,7 @@ services:
     ports:
       - "${EXTERNAL_QDRANT_PORT:-6333}:6333"
       - "${EXTERNAL_QDRANT_GRPC_PORT:-6334}:6334"
+
+  n8n:
+    ports:
+      - "5678:5678"

@@ -31,8 +31,22 @@ services:
     restart: unless-stopped
     volumes:
       - qdrant_data:/qdrant/storage
-      
+
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      - N8N_HOST=127.0.0.1
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - NODE_ENV=production
+      - WEBHOOK_URL=http://127.0.0.1:5678/
+      - GENERIC_TIMEZONE=Europe/Kyiv
+    volumes:
+      - n8n_data:/home/node/.n8n
+
 volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+  n8n_data:
