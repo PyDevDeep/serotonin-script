@@ -136,7 +136,7 @@ async def slack_interactions(request: Request):
             async with httpx.AsyncClient() as client:
                 # ВИПРАВЛЕНО URL
                 res = await client.post(
-                    "[https://slack.com/api/views.open](https://slack.com/api/views.open)",
+                    "https://slack.com/api/views.open",
                     headers=headers,
                     json={"trigger_id": trigger_id, "view": modal_view},
                 )
