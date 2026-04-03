@@ -9,9 +9,14 @@ SLACK_UI = {
     "error_fallback": "❌ Помилка задачі: {topic}",
     "error_header": "🚨 Сталася помилка",
     "error_details": "*Тема/Задача:* {topic}\n*Замовник:* <@{user_id}>\n\n*Деталі помилки:*\n```{error_msg}```",
-    # --- НОВІ КЛЮЧІ: Slash Commands ---
+    # --- Slash Commands ---
     "cmd_unknown": "Невідома команда.",
     "cmd_missing_args": "Вкажіть тему та платформу. Формат: `/draft Тема | платформа`\nНаприклад: `/draft Тривога і кава | telegram`",
     "cmd_invalid_platform": "Невідома платформа '{platform}'. Доступні: {valid_platforms}",
     "cmd_accepted": "⏳ Прийнято в роботу! Починаю RAG-пошук та генерацію на тему: *{topic}* для {platform}...",
+    # --- Interactions ---
+    "interact_approved_text": "✅ Драфт схвалено!",
+    "interact_approved_section": "✅ *Опубліковано!*\nДрафт відправлено в чергу на публікацію.",
+    "interact_rejected_text": "❌ Драфт відхилено.",
+    "interact_rejected_section": "❌ *Відхилено!*\nЦей варіант видалено. Можете спробувати іншу тему.",
 }

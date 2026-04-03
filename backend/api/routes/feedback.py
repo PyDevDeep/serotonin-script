@@ -1,10 +1,12 @@
 import json
 
+import httpx
 import structlog
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from backend.config.lexicon import SLACK_UI
 from backend.workers.tasks.generate_draft import generate_draft_task
+from backend.workers.tasks.publish_post import publish_post_task
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/slack", tags=["Slack Integration"])
@@ -60,7 +62,6 @@ async def slack_slash_command(request: Request):
 
 @router.post("/interactions")
 async def slack_interactions(request: Request):
-    # ... код обробки кнопок залишається тим самим ...
     form_data = await request.form()
     payload_str = form_data.get("payload")
 
@@ -69,6 +70,7 @@ async def slack_interactions(request: Request):
 
     payload = json.loads(str(payload_str))
     user_id = payload.get("user", {}).get("id")
+    response_url = payload.get("response_url")
 
     if payload.get("type") == "block_actions":
         actions = payload.get("actions", [])
@@ -78,7 +80,50 @@ async def slack_interactions(request: Request):
             if action_id == "action_publish_draft":
                 logger.info("slack_draft_approved_button", user_id=user_id)
 
+                # TODO: Витягнути реальний контент з payload/DB
+                await publish_post_task.kiq(
+                    post_id="temp_id",
+                    platform="telegram",
+                    content="Згенерований контент",
+                )
+
+                async with httpx.AsyncClient() as client:
+                    await client.post(
+                        response_url,
+                        json={
+                            "replace_original": True,
+                            "text": SLACK_UI["interact_approved_text"],
+                            "blocks": [
+                                {
+                                    "type": "section",
+                                    "text": {
+                                        "type": "mrkdwn",
+                                        "text": SLACK_UI["interact_approved_section"],
+                                    },
+                                }
+                            ],
+                        },
+                    )
+
             elif action_id == "action_reject_draft":
                 logger.info("slack_draft_rejected_button", user_id=user_id)
+
+                async with httpx.AsyncClient() as client:
+                    await client.post(
+                        response_url,
+                        json={
+                            "replace_original": True,
+                            "text": SLACK_UI["interact_rejected_text"],
+                            "blocks": [
+                                {
+                                    "type": "section",
+                                    "text": {
+                                        "type": "mrkdwn",
+                                        "text": SLACK_UI["interact_rejected_section"],
+                                    },
+                                }
+                            ],
+                        },
+                    )
 
     return Response(status_code=200)
