@@ -19,4 +19,15 @@ SLACK_UI = {
     "interact_approved_section": "✅ *Опубліковано!*\nДрафт відправлено в чергу на публікацію.",
     "interact_rejected_text": "❌ Драфт відхилено.",
     "interact_rejected_section": "❌ *Відхилено!*\nЦей варіант видалено. Можете спробувати іншу тему.",
+    # --- Draft Card ---
+    "btn_edit": "Редагувати",
+    "btn_regenerate": "Перегенерувати",
+    "fact_check_ok": "✅ Fact-check: Пройдено",
+    "fact_check_sources": "📚 Джерела: PubMed",
+    # --- Modal ---
+    "modal_title": "Редагування посту",
+    "modal_submit": "Зберегти",
+    "modal_cancel": "Скасувати",
+    "modal_input_label": "Текст публікації",
+    "modal_platform_label": "Платформа",
 }

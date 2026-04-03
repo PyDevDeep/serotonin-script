@@ -5,6 +5,7 @@ import structlog
 
 from backend.config.lexicon import SLACK_UI
 from backend.config.settings import settings
+from slack_app.utils.block_builder import build_draft_card
 
 logger = structlog.get_logger()
 
@@ -51,53 +52,7 @@ async def notify_slack_on_complete(
     payload = {
         "channel": channel_id,
         "text": SLACK_UI["draft_ready_fallback"].format(topic=topic),
-        "blocks": [
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": SLACK_UI["draft_ready_header"].format(topic=topic),
-                    "emoji": True,
-                },
-            },
-            {"type": "section", "text": {"type": "mrkdwn", "text": f"```{draft}```"}},
-            {
-                "type": "context",
-                "elements": [
-                    {
-                        "type": "mrkdwn",
-                        "text": SLACK_UI["ordered_by"].format(user_id=user_id),
-                    }
-                ],
-            },
-            {
-                "type": "actions",
-                "elements": [
-                    {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": SLACK_UI["btn_publish"],
-                            "emoji": True,
-                        },
-                        "style": "primary",
-                        "value": "publish",
-                        "action_id": "action_publish_draft",
-                    },
-                    {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": SLACK_UI["btn_reject"],
-                            "emoji": True,
-                        },
-                        "style": "danger",
-                        "value": "reject",
-                        "action_id": "action_reject_draft",
-                    },
-                ],
-            },
-        ],
+        "blocks": build_draft_card(topic=topic, draft=draft, user_id=user_id),
     }
     await _send_slack_message(payload)
 
