@@ -1,0 +1,35 @@
+name: Linting & Type Checking
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python 3.13.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.11"
+          
+      - name: Install Poetry
+        run: pip install poetry
+        
+      - name: Install dependencies
+        run: poetry install
+        
+      - name: Run Ruff Linter
+        run: poetry run ruff check .
+        
+      - name: Run Ruff Formatter check
+        run: poetry run ruff format --check .
+        
+      - name: Run Pyright Type Checker
+        run: poetry run pyright
