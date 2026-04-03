@@ -168,16 +168,6 @@ alembic upgrade head
 
 ---
 
-## 🗺️ Roadmap
-
-- [x] **Phase 1**: Infrastructure & Dev Environment Setup
-- [ ] **Phase 2**: RAG Pipeline Implementation (Doctor Style Matcher)
-- [ ] **Phase 3**: Taskiq Workers for Background Generation
-- [ ] **Phase 4**: Multi-Platform Publishing (Telegram, X, Threads)
-- [ ] **Phase 5**: Scheduled Posting & Analytics Dashboard
-
----
-
 ## 🤝 Contributing
 
 1. Fork the repository
