@@ -224,7 +224,6 @@ def build_generation_modal(channel_id: str) -> dict[str, Any]:
 
 
 def build_app_home() -> dict[str, Any]:
-    """Генерує інтерфейс вкладки Home."""
     return {
         "type": "home",
         "blocks": [
@@ -252,9 +251,57 @@ def build_app_home() -> dict[str, Any]:
                             "emoji": True,
                         },
                         "style": "primary",
-                        "action_id": "action_open_generation_modal",  # Та сама логіка, що й для команди
-                    }
+                        "action_id": "action_open_generation_modal",
+                    },
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": SLACK_UI["home_btn_upload"],
+                            "emoji": True,
+                        },
+                        "action_id": "action_open_upload_modal",
+                    },
                 ],
             },
+        ],
+    }
+
+
+def build_upload_modal() -> dict[str, Any]:
+    """Генерує модальне вікно для завантаження файлу в базу знань."""
+    return {
+        "type": "modal",
+        "callback_id": "modal_upload_guideline",
+        "title": {
+            "type": "plain_text",
+            "text": SLACK_UI["upload_modal_title"],
+            "emoji": True,
+        },
+        "submit": {
+            "type": "plain_text",
+            "text": SLACK_UI["upload_modal_submit"],
+            "emoji": True,
+        },
+        "close": {
+            "type": "plain_text",
+            "text": SLACK_UI["modal_cancel"],
+            "emoji": True,
+        },
+        "blocks": [
+            {
+                "type": "input",
+                "block_id": "block_file_upload",
+                "label": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["upload_modal_input_label"],
+                },
+                "element": {
+                    "type": "file_input",
+                    "action_id": "input_file",
+                    "filetypes": ["pdf", "txt"],  # Обмежуємо формати
+                    "max_files": 1,
+                },
+            }
         ],
     }

@@ -42,4 +42,9 @@ SLACK_UI = {
     "home_welcome": "Вітаю у Seratonin Script! 🧠",
     "home_description": "Це твій центр керування медичним контентом. Натисни кнопку нижче, щоб почати.",
     "home_btn_create": "✨ Створити новий пост",
+    "home_btn_upload": "📚 Завантажити гайдлайн",
+    # --- Upload Modal ---
+    "upload_modal_title": "База знань",
+    "upload_modal_submit": "Завантажити",
+    "upload_modal_input_label": "Оберіть файл (PDF/TXT)",
 }

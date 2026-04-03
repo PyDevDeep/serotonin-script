@@ -12,6 +12,7 @@ from slack_app.utils.block_builder import (
     build_app_home,
     build_approval_modal,
     build_generation_modal,
+    build_upload_modal,
 )
 
 logger = structlog.get_logger()
@@ -57,7 +58,7 @@ async def slack_interactions(request: Request):
         raise HTTPException(status_code=400, detail="Missing payload")
 
     payload = json.loads(str(payload_str))
-    user_id = payload.get("user", {}).get("id")
+    user_id = str(payload.get("user", {}).get("id", ""))  # Cast to str for Pylance
     interaction_type = payload.get("type")
 
     slack_token = (
@@ -66,8 +67,8 @@ async def slack_interactions(request: Request):
     headers = {"Authorization": f"Bearer {slack_token}"}
 
     if interaction_type == "block_actions":
-        response_url = payload.get("response_url")
-        trigger_id = payload.get("trigger_id")
+        response_url = str(payload.get("response_url", ""))
+        trigger_id = str(payload.get("trigger_id", ""))
         action = payload.get("actions", [])[0]
         action_id = action.get("action_id")
 
@@ -76,12 +77,24 @@ async def slack_interactions(request: Request):
         draft_text = raw_draft.replace("```", "").strip()
         topic = "Медичний пост"
 
-        if action_id == "action_publish_draft":
+        # УСІ перевірки action_id мають бути всередині цього блоку
+        if action_id == "action_open_upload_modal":
+            logger.info("slack_home_upload_btn_clicked", user_id=user_id)
+            modal_view = build_upload_modal()
+            async with httpx.AsyncClient() as client:
+                res = await client.post(
+                    "[https://slack.com/api/views.open](https://slack.com/api/views.open)",
+                    headers=headers,
+                    json={"trigger_id": trigger_id, "view": modal_view},
+                )
+                if not res.json().get("ok"):
+                    logger.error("slack_modal_error", error=res.json())
+
+        elif action_id == "action_publish_draft":
             logger.info("slack_draft_approved", user_id=user_id)
             await publish_post_task.kiq(
                 post_id="temp_id", platform="telegram", content=draft_text
             )
-
             async with httpx.AsyncClient() as client:
                 await client.post(
                     response_url,
@@ -126,9 +139,8 @@ async def slack_interactions(request: Request):
                 topic=topic, draft=draft_text, platform="telegram"
             )
             async with httpx.AsyncClient() as client:
-                # ВИПРАВЛЕНО URL
                 res = await client.post(
-                    "https://slack.com/api/views.open",
+                    "[https://slack.com/api/views.open](https://slack.com/api/views.open)",
                     headers=headers,
                     json={"trigger_id": trigger_id, "view": modal_view},
                 )
@@ -137,12 +149,10 @@ async def slack_interactions(request: Request):
 
         elif action_id == "action_regenerate_draft":
             logger.info("slack_draft_regenerate", user_id=user_id)
-            channel_id = payload.get("channel", {}).get("id")  # ДОДАНО
-
-            await generate_draft_task.kiq(  # type: ignore[call-overload]
+            channel_id = str(payload.get("channel", {}).get("id", ""))
+            await generate_draft_task.kiq(
                 topic=topic, platform="telegram", user_id=user_id, channel_id=channel_id
-            )
-
+            )  # type: ignore
             async with httpx.AsyncClient() as client:
                 await client.post(
                     response_url,
@@ -166,12 +176,13 @@ async def slack_interactions(request: Request):
             modal_view = build_generation_modal(channel_id=user_id)
             async with httpx.AsyncClient() as client:
                 res = await client.post(
-                    "https://slack.com/api/views.open",
+                    "[https://slack.com/api/views.open](https://slack.com/api/views.open)",
                     headers=headers,
                     json={"trigger_id": trigger_id, "view": modal_view},
                 )
                 if not res.json().get("ok"):
                     logger.error("slack_modal_error", error=res.json())
+
         return Response(status_code=200)
 
     elif interaction_type == "view_submission":
@@ -252,7 +263,34 @@ async def slack_interactions(request: Request):
                 media_type="application/json",
                 status_code=200,
             )
+        # --- СЦЕНАРІЙ 3: Завантаження гайдлайну ---
+        elif callback_id == "modal_upload_guideline":
+            # Slack повертає масив об'єктів файлів
+            files = (
+                state_values.get("block_file_upload", {})
+                .get("input_file", {})
+                .get("files", [])
+            )
+            if not files:
+                return Response(status_code=400)
 
+            file_info = files[0]
+            # file_url = file_info.get("url_private_download")
+            file_name = file_info.get("name")
+
+            logger.info("slack_file_uploaded", user_id=user_id, file_name=file_name)
+
+            # TODO: Тут ми створимо таск `ingest_document_task`, який буде
+            # скачувати файл за file_url (використовуючи Slack Token),
+            # парсити PDF/TXT та векторизувати його у Qdrant.
+            # await ingest_document_task.kiq(file_url=file_url, file_name=file_name)
+
+            # Закриваємо модалку
+            return Response(
+                content=json.dumps({"response_action": "clear"}),
+                media_type="application/json",
+                status_code=200,
+            )
     return Response(status_code=200)
 
 
