@@ -106,3 +106,22 @@ class JudgeViolation(TypedDict):
 JudgeResult = TypedDict(
     "JudgeResult", {"pass": bool, "violations": List[JudgeViolation]}
 )
+
+
+# --- Taskiq API Schemas ---
+class DraftGenerateRequest(BaseModel):
+    """Схема для запиту на генерацію нового драфту"""
+
+    topic: str = Field(..., max_length=255)
+    platform: Platform
+    source_url: Optional[str] = None
+    user_id: int
+
+
+class TaskResponse(BaseModel):
+    """Універсальна схема для статусів та результатів Taskiq"""
+
+    task_id: str
+    status: str
+    result: Optional[str] = None
+    error: Optional[str] = None

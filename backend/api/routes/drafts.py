@@ -1,33 +1,89 @@
-from typing import Annotated
+import asyncio
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.api.dependencies import get_draft_repository
-from backend.models.schemas import DraftCreate, DraftResponse
+from backend.models.schemas import (
+    DraftCreate,
+    DraftGenerateRequest,
+    DraftResponse,
+    TaskResponse,
+)
 from backend.repositories.draft_repository import DraftRepository
+from backend.workers.broker import result_backend
+from backend.workers.tasks.generate_draft import generate_draft_task
 
 router = APIRouter(prefix="/draft", tags=["Drafts"])
 
 
-@router.post("/", response_model=DraftResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_draft(
-    draft_in: DraftCreate,
+    request: DraftGenerateRequest,
     draft_repo: Annotated[DraftRepository, Depends(get_draft_repository)],
 ):
     """
-    Створює новий запит на генерацію чернетки.
-    (У Phase 4 тут буде виклик Taskiq worker-а).
+    1. Створює новий запис у БД.
+    2. Відправляє фонову задачу генерації в Taskiq.
+    3. Повертає task_id клієнту.
     """
-    # TODO: Додати перевірку чи існує user_id у таблиці users
-    draft = await draft_repo.create(draft_in)
-    return draft
+    draft_in = DraftCreate(topic=request.topic, user_id=request.user_id)
+    await draft_repo.create(draft_in)
+
+    # Викликаємо фонову задачу
+    task: Any = await generate_draft_task.kiq(  # type: ignore[reportCallIssue]
+        topic=request.topic,
+        platform=request.platform.value,
+        source_url=request.source_url,
+    )
+    # TODO у майбутньому: оновити draft у БД, додавши йому task_id
+    return TaskResponse(
+        task_id=str(task.task_id),  # type: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+        status="QUEUED",
+    )
 
 
-@router.get("/{draft_id}", response_model=DraftResponse)
-async def get_draft(
+@router.get("/{task_id}/status", response_model=TaskResponse)
+async def get_task_status(task_id: str):
+    """Перевіряє поточний статус задачі без блокування."""
+    is_ready = await result_backend.is_result_ready(task_id)
+
+    if not is_ready:
+        return TaskResponse(task_id=task_id, status="PENDING")
+
+    result = await result_backend.get_result(task_id)
+    status_val = "FAILED" if result.is_err else "COMPLETED"
+    return TaskResponse(task_id=task_id, status=status_val)
+
+
+@router.get("/{task_id}/result", response_model=TaskResponse)
+async def get_task_result(task_id: str):
+    """
+    Чекає на результат задачі (до 30 секунд).
+    Використовується для Long Polling з боку n8n/Slack.
+    """
+    timeout = 30
+
+    for _ in range(timeout):
+        if await result_backend.is_result_ready(task_id):
+            result = await result_backend.get_result(task_id)
+            if result.is_err:
+                return TaskResponse(
+                    task_id=task_id, status="FAILED", error=str(result.error)
+                )
+            return TaskResponse(
+                task_id=task_id, status="COMPLETED", result=result.return_value
+            )
+        await asyncio.sleep(1)
+
+    return TaskResponse(task_id=task_id, status="TIMEOUT_OR_PENDING")
+
+
+@router.get("/db/{draft_id}", response_model=DraftResponse)
+async def get_draft_from_db(
     draft_id: int, draft_repo: Annotated[DraftRepository, Depends(get_draft_repository)]
 ):
-    """Повертає статус та контент чернетки за ID."""
+    """Повертає статус та контент чернетки безпосередньо з БД."""
     draft = await draft_repo.get_by_id(draft_id)
     if not draft:
         raise HTTPException(
