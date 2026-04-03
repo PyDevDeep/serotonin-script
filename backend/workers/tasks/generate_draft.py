@@ -5,6 +5,7 @@ from taskiq import TaskiqDepends
 
 from backend.services.content_generator import ContentGenerator, JudgeFailedError
 from backend.workers.broker import broker
+from backend.workers.callbacks import notify_slack_on_complete, notify_slack_on_failure
 from backend.workers.dependencies import get_content_generator
 
 logger = structlog.get_logger()
@@ -17,6 +18,8 @@ async def generate_draft_task(
     platform: str,
     generator: Annotated[ContentGenerator, TaskiqDepends(get_content_generator)],
     source_url: str | None = None,
+    user_id: str | None = None,
+    channel_id: str | None = None,
 ) -> str:
     """
     Фонова задача для генерації медичного контенту.
@@ -27,6 +30,8 @@ async def generate_draft_task(
         topic=topic,
         platform=platform,
         source_url=source_url,
+        user_id=user_id,
+        channel_id=channel_id,
     )
 
     try:
@@ -36,18 +41,30 @@ async def generate_draft_task(
         logger.info(
             "background_task_success", task="generate_medical_draft", topic=topic
         )
+
+        # ДОДАНО: Відправка готового результату у Slack
+        if user_id and channel_id:
+            await notify_slack_on_complete(
+                user_id=user_id, channel_id=channel_id, draft=result, topic=topic
+            )
+
         return result
 
     except JudgeFailedError as e:
-        # Специфічна обробка помилки валідації LLM
         logger.error(
             "background_task_judge_failed",
             task="generate_medical_draft",
             topic=e.topic,
             attempts=e.attempts,
         )
-        # Навіть якщо суддя відхилив, ми можемо кинути помилку або зберегти "чорновий" драфт.
-        # Зараз кидаємо виняток, щоб Taskiq зафіксував статус Failure.
+        # ДОДАНО: Відправка повідомлення про провал валідації у Slack
+        if user_id and channel_id:
+            await notify_slack_on_failure(
+                user_id=user_id,
+                channel_id=channel_id,
+                error_msg=f"Модель не пройшла валідацію після {e.attempts} спроб.\n\nОстанній драфт:\n{e.draft}",
+                topic=topic,
+            )
         raise
 
     except Exception as e:
@@ -58,4 +75,9 @@ async def generate_draft_task(
             error=str(e),
             error_type=type(e).__name__,
         )
+        # ДОДАНО: Відправка критичної помилки у Slack
+        if user_id and channel_id:
+            await notify_slack_on_failure(
+                user_id=user_id, channel_id=channel_id, error_msg=str(e), topic=topic
+            )
         raise

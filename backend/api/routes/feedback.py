@@ -1,8 +1,3 @@
-"""
-File: backend/api/routes/feedback.py
-Task: 5.1.3 & 5.3.1 - Slack Webhooks (Refactored to use Lexicon)
-"""
-
 import json
 
 import structlog
@@ -26,7 +21,7 @@ async def slack_slash_command(request: Request):
     command = form_data.get("command")
     text = str(form_data.get("text", "")).strip()
     user_id = form_data.get("user_id")
-    # channel_id = form_data.get("channel_id")
+    channel_id = form_data.get("channel_id")
 
     if command != "/draft":
         return {"response_type": "ephemeral", "text": SLACK_UI["cmd_unknown"]}
@@ -52,7 +47,9 @@ async def slack_slash_command(request: Request):
     )
 
     # Відправляємо задачу в Taskiq
-    await generate_draft_task.kiq(topic=topic, platform=platform)  # type: ignore[call-overload]
+    await generate_draft_task.kiq(
+        topic=topic, platform=platform, user_id=user_id, channel_id=channel_id
+    )  # type: ignore[call-overload]
 
     # Повертаємо миттєву відповідь для Slack
     return {
