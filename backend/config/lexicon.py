@@ -1,0 +1,12 @@
+SLACK_UI = {
+    # Success Notifications
+    "draft_ready_fallback": "✅ Драфт готовий: {topic}",
+    "draft_ready_header": "📝 Новий драфт: {topic}",
+    "ordered_by": "👤 Замовлено: <@{user_id}>",
+    "btn_publish": "Опублікувати",
+    "btn_reject": "Відхилити",
+    # Error Notifications
+    "error_fallback": "❌ Помилка задачі: {topic}",
+    "error_header": "🚨 Сталася помилка",
+    "error_details": "*Тема/Задача:* {topic}\n*Замовник:* <@{user_id}>\n\n*Деталі помилки:*\n```{error_msg}```",
+}

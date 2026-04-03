@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     QDRANT_PORT: int = 6333
     EXTERNAL_QDRANT_PORT: int = 6333
 
+    SLACK_BOT_TOKEN: SecretStr = Field(default=...)
     # Конфігурація Pydantic
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
