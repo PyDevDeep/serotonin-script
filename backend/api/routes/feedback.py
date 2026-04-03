@@ -67,10 +67,14 @@ async def slack_interactions(request: Request):
     headers = {"Authorization": f"Bearer {slack_token}"}
 
     if interaction_type == "block_actions":
-        response_url = str(payload.get("response_url", ""))
         trigger_id = str(payload.get("trigger_id", ""))
         action = payload.get("actions", [])[0]
         action_id = action.get("action_id")
+        response_url = payload.get("response_url")
+
+        if not response_url or not isinstance(response_url, str):
+            logger.warning("slack_interaction_no_response_url", action_id=action_id)
+            return Response(status_code=200)
 
         blocks = payload.get("message", {}).get("blocks", [])
         raw_draft = blocks[1]["text"]["text"] if len(blocks) > 1 else ""
@@ -83,7 +87,7 @@ async def slack_interactions(request: Request):
             modal_view = build_upload_modal()
             async with httpx.AsyncClient() as client:
                 res = await client.post(
-                    "[https://slack.com/api/views.open](https://slack.com/api/views.open)",
+                    "https://slack.com/api/views.open",
                     headers=headers,
                     json={"trigger_id": trigger_id, "view": modal_view},
                 )
@@ -140,7 +144,7 @@ async def slack_interactions(request: Request):
             )
             async with httpx.AsyncClient() as client:
                 res = await client.post(
-                    "[https://slack.com/api/views.open](https://slack.com/api/views.open)",
+                    "https://slack.com/api/views.open",
                     headers=headers,
                     json={"trigger_id": trigger_id, "view": modal_view},
                 )
@@ -176,7 +180,7 @@ async def slack_interactions(request: Request):
             modal_view = build_generation_modal(channel_id=user_id)
             async with httpx.AsyncClient() as client:
                 res = await client.post(
-                    "[https://slack.com/api/views.open](https://slack.com/api/views.open)",
+                    "https://slack.com/api/views.open",
                     headers=headers,
                     json={"trigger_id": trigger_id, "view": modal_view},
                 )
