@@ -30,4 +30,6 @@ SLACK_UI = {
     "modal_cancel": "Скасувати",
     "modal_input_label": "Текст публікації",
     "modal_platform_label": "Платформа",
+    "interact_regenerate_text": "⏳ Перегенерація...",
+    "interact_regenerate_section": "⏳ *Перегенерація...*\nНовий варіант скоро з'явиться.",
 }
