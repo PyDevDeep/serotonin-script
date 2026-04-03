@@ -21,14 +21,16 @@ def get_url():
     user = os.getenv("POSTGRES_USER", "seratonin")
     password = os.getenv("POSTGRES_PASSWORD", "seratonin_pass")
 
-    # Використовуємо загальні назви DB_HOST та DB_PORT.
-    # Якщо їх немає в .env — беремо дефолти для тунелю.
-    host = os.getenv("DB_HOST", "127.0.0.1")
-    port = os.getenv("DB_PORT", os.getenv("EXTERNAL_POSTGRES_PORT", "5433"))
+    # Використовуємо 'localhost' для Windows-тунелів, це стабільніше за 127.0.0.1
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    port = os.getenv("POSTGRES_PORT", "5433")
 
     db = os.getenv("POSTGRES_DB", "seratonin_db")
 
-    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
+    url = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
+    # Вивід для діагностики: ти побачиш куди саме йде коннект
+    print(f"DEBUG: Generated URL -> postgresql+asyncpg://{user}:***@{host}:{port}/{db}")
+    return url
 
 
 # 2. Встановлюємо URL в конфігурацію
