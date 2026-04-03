@@ -1,5 +1,4 @@
 import json
-from typing import cast
 
 import httpx
 import structlog
@@ -9,7 +8,11 @@ from backend.config.lexicon import SLACK_UI
 from backend.config.settings import settings
 from backend.workers.tasks.generate_draft import generate_draft_task
 from backend.workers.tasks.publish_post import publish_post_task
-from slack_app.utils.block_builder import build_approval_modal
+from slack_app.utils.block_builder import (
+    build_app_home,
+    build_approval_modal,
+    build_generation_modal,
+)
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/slack", tags=["Slack Integration"])
@@ -19,41 +22,30 @@ router = APIRouter(prefix="/slack", tags=["Slack Integration"])
 async def slack_slash_command(request: Request):
     form_data = await request.form()
     command = form_data.get("command")
-    text = str(form_data.get("text", "")).strip()
-    user_id = cast(str, form_data.get("user_id", ""))
-    channel_id = cast(str, form_data.get("channel_id", ""))
+    trigger_id = form_data.get("trigger_id")
+    channel_id = str(form_data.get("channel_id"))
 
     if command != "/draft":
         return {"response_type": "ephemeral", "text": SLACK_UI["cmd_unknown"]}
 
-    if not text:
-        return {"response_type": "ephemeral", "text": SLACK_UI["cmd_missing_args"]}
-
-    parts = [p.strip() for p in text.split("|")]
-    topic = parts[0]
-    platform = parts[1].lower() if len(parts) > 1 else "telegram"
-
-    valid_platforms = ["telegram", "twitter", "threads"]
-    if platform not in valid_platforms:
-        return {
-            "response_type": "ephemeral",
-            "text": SLACK_UI["cmd_invalid_platform"].format(
-                platform=platform, valid_platforms=", ".join(valid_platforms)
-            ),
-        }
-
-    logger.info(
-        "slack_command_received", topic=topic, platform=platform, user_id=user_id
+    # Відкриваємо модалку замість парсингу тексту
+    modal_view = build_generation_modal(channel_id=channel_id)
+    slack_token = (
+        settings.SLACK_BOT_TOKEN.get_secret_value() if settings.SLACK_BOT_TOKEN else ""
     )
+    headers = {"Authorization": f"Bearer {slack_token}"}
 
-    await generate_draft_task.kiq(  # type: ignore[call-overload]
-        topic=topic, platform=platform, user_id=user_id, channel_id=channel_id
-    )
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            "https://slack.com/api/views.open",
+            headers=headers,
+            json={"trigger_id": trigger_id, "view": modal_view},
+        )
+        if not res.json().get("ok"):
+            logger.error("slack_modal_open_error", error=res.json())
 
-    return {
-        "response_type": "in_channel",
-        "text": SLACK_UI["cmd_accepted"].format(topic=topic, platform=platform),
-    }
+    # Повертаємо 200 OK без тіла, щоб Slack не дублював повідомлення
+    return Response(status_code=200)
 
 
 @router.post("/interactions")
@@ -169,34 +161,125 @@ async def slack_interactions(request: Request):
                     },
                 )
 
+        elif action_id == "action_open_generation_modal":
+            logger.info("slack_home_generation_btn_clicked", user_id=user_id)
+            modal_view = build_generation_modal(channel_id=user_id)
+            async with httpx.AsyncClient() as client:
+                res = await client.post(
+                    "https://slack.com/api/views.open",
+                    headers=headers,
+                    json={"trigger_id": trigger_id, "view": modal_view},
+                )
+                if not res.json().get("ok"):
+                    logger.error("slack_modal_error", error=res.json())
         return Response(status_code=200)
 
     elif interaction_type == "view_submission":
         view = payload.get("view", {})
+        callback_id = view.get("callback_id")
         state_values = view.get("state", {}).get("values", {})
 
-        draft_content = (
-            state_values.get("block_draft_content", {})
-            .get("input_draft_content", {})
-            .get("value", "")
-        )
-        platform = (
-            state_values.get("block_platform_select", {})
-            .get("input_platform_select", {})
-            .get("selected_option", {})
-            .get("value", "telegram")
-        )
+        # --- СЦЕНАРІЙ 1: Генерація нового драфту ---
+        if callback_id == "modal_generate_draft":
+            channel_id = view.get("private_metadata")  # Дістаємо збережений канал
+            topic = (
+                state_values.get("block_topic_input", {})
+                .get("input_topic", {})
+                .get("value", "")
+                .strip()
+            )
+            platform = (
+                state_values.get("block_platform_select", {})
+                .get("input_platform_select", {})
+                .get("selected_option", {})
+                .get("value", "telegram")
+            )
 
-        logger.info("slack_modal_submitted", user_id=user_id, platform=platform)
+            logger.info(
+                "slack_generation_modal_submitted",
+                user_id=user_id,
+                topic=topic,
+                platform=platform,
+            )
 
-        await publish_post_task.kiq(
-            post_id="temp_id", platform=platform, content=draft_content
-        )
+            # Запускаємо генерацію
+            await generate_draft_task.kiq(  # type: ignore[call-overload]
+                topic=topic, platform=platform, user_id=user_id, channel_id=channel_id
+            )
 
-        return Response(
-            content=json.dumps({"response_action": "clear"}),
-            media_type="application/json",
-            status_code=200,
+            # Відправляємо підтвердження в канал
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    "https://slack.com/api/chat.postMessage",
+                    headers=headers,
+                    json={
+                        "channel": channel_id,
+                        "text": SLACK_UI["cmd_accepted"].format(
+                            topic=topic, platform=platform
+                        ),
+                    },
+                )
+
+            return Response(
+                content=json.dumps({"response_action": "clear"}),
+                media_type="application/json",
+                status_code=200,
+            )
+
+        # --- СЦЕНАРІЙ 2: Збереження відредагованого драфту ---
+        elif callback_id == "modal_edit_draft":
+            draft_content = (
+                state_values.get("block_draft_content", {})
+                .get("input_draft_content", {})
+                .get("value", "")
+            )
+            platform = (
+                state_values.get("block_platform_select", {})
+                .get("input_platform_select", {})
+                .get("selected_option", {})
+                .get("value", "telegram")
+            )
+
+            logger.info(
+                "slack_edit_modal_submitted", user_id=user_id, platform=platform
+            )
+            await publish_post_task.kiq(
+                post_id="temp_id", platform=platform, content=draft_content
+            )
+
+            return Response(
+                content=json.dumps({"response_action": "clear"}),
+                media_type="application/json",
+                status_code=200,
+            )
+
+    return Response(status_code=200)
+
+
+@router.post("/events")
+async def slack_events(request: Request):
+    """Обробка Events API (наприклад, відкриття вкладки Home)."""
+    data = await request.json()
+
+    # 1. Підтвердження URL для Slack (виконується один раз при налаштуванні)
+    if data.get("type") == "url_verification":
+        return {"challenge": data.get("challenge")}
+
+    event = data.get("event", {})
+    user_id = event.get("user")
+
+    # 2. Коли користувач відкриває вкладку Home — малюємо йому дашборд
+    if event.get("type") == "app_home_opened":
+        slack_token = (
+            settings.SLACK_BOT_TOKEN.get_secret_value()
+            if settings.SLACK_BOT_TOKEN
+            else ""
         )
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                "https://slack.com/api/views.publish",
+                headers={"Authorization": f"Bearer {slack_token}"},
+                json={"user_id": user_id, "view": build_app_home()},
+            )
 
     return Response(status_code=200)

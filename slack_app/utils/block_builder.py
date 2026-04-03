@@ -78,7 +78,9 @@ def build_draft_card(topic: str, draft: str, user_id: str) -> list[dict[str, Any
     ]
 
 
-def build_approval_modal(topic: str, draft: str, platform: str = "telegram") -> dict[str, Any]:
+def build_approval_modal(
+    topic: str, draft: str, platform: str = "telegram"
+) -> dict[str, Any]:
     """Генерує модальне вікно для редагування тексту перед публікацією."""
     return {
         "type": "modal",
@@ -141,6 +143,118 @@ def build_approval_modal(topic: str, draft: str, platform: str = "telegram") -> 
                     "text": SLACK_UI["modal_platform_label"],
                     "emoji": True,
                 },
+            },
+        ],
+    }
+
+
+def build_generation_modal(channel_id: str) -> dict[str, Any]:
+    """Генерує стартове модальне вікно для вводу теми та платформи."""
+    return {
+        "type": "modal",
+        "callback_id": "modal_generate_draft",
+        "private_metadata": channel_id,
+        "title": {
+            "type": "plain_text",
+            "text": SLACK_UI["gen_modal_title"],
+            "emoji": True,
+        },
+        "submit": {
+            "type": "plain_text",
+            "text": SLACK_UI["gen_modal_submit"],
+            "emoji": True,
+        },
+        "close": {
+            "type": "plain_text",
+            "text": SLACK_UI["modal_cancel"],
+            "emoji": True,
+        },
+        "blocks": [
+            {
+                "type": "input",
+                "block_id": "block_topic_input",
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "input_topic",
+                    "multiline": False,
+                    "placeholder": {
+                        "type": "plain_text",
+                        "text": SLACK_UI["gen_modal_topic_placeholder"],
+                    },
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["gen_modal_topic_label"],
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "input",
+                "block_id": "block_platform_select",
+                "element": {
+                    "type": "static_select",
+                    "action_id": "input_platform_select",
+                    "initial_option": {
+                        "text": {"type": "plain_text", "text": "Telegram"},
+                        "value": "telegram",
+                    },
+                    "options": [
+                        {
+                            "text": {"type": "plain_text", "text": "Telegram"},
+                            "value": "telegram",
+                        },
+                        {
+                            "text": {"type": "plain_text", "text": "Twitter"},
+                            "value": "twitter",
+                        },
+                        {
+                            "text": {"type": "plain_text", "text": "Threads"},
+                            "value": "threads",
+                        },
+                    ],
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["gen_modal_platform_label"],
+                    "emoji": True,
+                },
+            },
+        ],
+    }
+
+
+def build_app_home() -> dict[str, Any]:
+    """Генерує інтерфейс вкладки Home."""
+    return {
+        "type": "home",
+        "blocks": [
+            {
+                "type": "header",
+                "text": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["home_welcome"],
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": SLACK_UI["home_description"]},
+            },
+            {"type": "divider"},
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": SLACK_UI["home_btn_create"],
+                            "emoji": True,
+                        },
+                        "style": "primary",
+                        "action_id": "action_open_generation_modal",  # Та сама логіка, що й для команди
+                    }
+                ],
             },
         ],
     }

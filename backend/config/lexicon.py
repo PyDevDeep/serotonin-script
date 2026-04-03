@@ -32,4 +32,14 @@ SLACK_UI = {
     "modal_platform_label": "Платформа",
     "interact_regenerate_text": "⏳ Перегенерація...",
     "interact_regenerate_section": "⏳ *Перегенерація...*\nНовий варіант скоро з'явиться.",
+    # --- Generation Modal ---
+    "gen_modal_title": "Нова генерація",
+    "gen_modal_submit": "Згенерувати",
+    "gen_modal_topic_label": "Про що напишемо?",
+    "gen_modal_topic_placeholder": "Наприклад: Вплив кави на тривожність",
+    "gen_modal_platform_label": "Оберіть платформу",
+    # --- App Home ---
+    "home_welcome": "Вітаю у Seratonin Script! 🧠",
+    "home_description": "Це твій центр керування медичним контентом. Натисни кнопку нижче, щоб почати.",
+    "home_btn_create": "✨ Створити новий пост",
 }
