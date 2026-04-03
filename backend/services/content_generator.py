@@ -26,7 +26,9 @@ class ContentGenerator:
         self.style_matcher = StyleMatcher()
         self.fact_checker = FactChecker(llm_router=self.llm_router)
 
-    async def _judge_limited(self, post: str, topic: str, status: str) -> dict[str, Any]:
+    async def _judge_limited(
+        self, post: str, topic: str, status: str
+    ) -> dict[str, Any]:
         judge_messages = [
             ChatMessage(role=MessageRole.SYSTEM, content=JUDGE_SYSTEM),
             ChatMessage(
@@ -59,9 +61,18 @@ class ContentGenerator:
             }
 
     async def generate_draft(
-        self, topic: str, platform: str, source_url: str | None = None, max_retries: int = 2
+        self,
+        topic: str,
+        platform: str,
+        source_url: str | None = None,
+        max_retries: int = 2,
     ) -> str:
-        logger.info("draft_generation_started", topic=topic, platform=platform, source_url=source_url)
+        logger.info(
+            "draft_generation_started",
+            topic=topic,
+            platform=platform,
+            source_url=source_url,
+        )
 
         style_context = await self.style_matcher.get_style_context(topic)
         medical_context, context_status = await self.fact_checker.get_medical_context(

@@ -275,7 +275,11 @@ class FactChecker:
 
         # 0. Web scraping та Qdrant — запускаємо паралельно
         qdrant_task = asyncio.create_task(self._fetch_from_qdrant(topic))
-        web_task = asyncio.create_task(self._fetch_from_web(source_url)) if source_url else None
+        web_task = (
+            asyncio.create_task(self._fetch_from_web(source_url))
+            if source_url
+            else None
+        )
 
         unique_nodes = await qdrant_task
         web_context = await web_task if web_task else None
@@ -321,7 +325,9 @@ class FactChecker:
 
             if context_parts:
                 logger.info("medical_context_fetched", chunks=len(context_parts))
-                return self._merge_web(web_context, "\n\n".join(context_parts), "ПОВНИЙ")
+                return self._merge_web(
+                    web_context, "\n\n".join(context_parts), "ПОВНИЙ"
+                )
 
             # Всі chunks відкинуті через низький keyword overlap — fallback до PubMed
             logger.warning("all_chunks_rejected_keyword_overlap_fallback_pubmed")
@@ -338,7 +344,9 @@ class FactChecker:
         return self._merge_web(web_context, rag_context, status)
 
     @staticmethod
-    def _merge_web(web_context: str | None, rag_context: str, status: str) -> tuple[str, str]:
+    def _merge_web(
+        web_context: str | None, rag_context: str, status: str
+    ) -> tuple[str, str]:
         """Prepend web_context до rag_context. Якщо web є — статус завжди ПОВНИЙ."""
         if not web_context:
             return rag_context, status
