@@ -1,1 +1,27 @@
-# slack_app/manifest.yaml
+display_information:
+  name: Seratonin Script
+  description: AI Medical Copywriter Assistant
+  background_color: "#1d2125"
+features:
+  bot_user:
+    display_name: Seratonin Bot
+    always_online: true
+  slash_commands:
+    - command: /draft
+      url: https://optifood-ai.duckdns.org/api/v1/slack/commands
+      description: Створити новий медичний пост
+      usage_hint: "тема | платформа (telegram/twitter/threads)"
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - users:read
+settings:
+  interactivity:
+    is_enabled: true
+    request_url: https://optifood-ai.duckdns.org/api/v1/slack/interactions
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
