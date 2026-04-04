@@ -4,7 +4,7 @@ from backend.config.lexicon import SLACK_UI
 
 
 def build_draft_card(
-    topic: str, draft: str, user_id: str, draft_id: str
+    topic: str, draft: str, user_id: str, draft_id: str, platform: str
 ) -> list[dict[str, Any]]:
     """Генерує картку чернетки з кнопками дій."""
     return [
@@ -41,7 +41,7 @@ def build_draft_card(
                         "emoji": True,
                     },
                     "style": "primary",
-                    "value": draft_id,
+                    "value": f"{draft_id}|{platform}",  # ПРОШИВАЄМО ID ТА ПЛАТФОРМУ
                     "action_id": "action_publish_draft",
                 },
                 {
@@ -51,7 +51,7 @@ def build_draft_card(
                         "text": SLACK_UI["btn_edit"],
                         "emoji": True,
                     },
-                    "value": draft_id,
+                    "value": f"{draft_id}|{platform}",
                     "action_id": "action_edit_draft",
                 },
                 {
@@ -61,7 +61,7 @@ def build_draft_card(
                         "text": SLACK_UI["btn_regenerate"],
                         "emoji": True,
                     },
-                    "value": "regenerate",
+                    "value": f"{draft_id}|{platform}",
                     "action_id": "action_regenerate_draft",
                 },
                 {
@@ -72,7 +72,7 @@ def build_draft_card(
                         "emoji": True,
                     },
                     "style": "danger",
-                    "value": "reject",
+                    "value": f"{draft_id}|{platform}",
                     "action_id": "action_reject_draft",
                 },
             ],
