@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.lexicon import SLACK_UI
 from backend.config.settings import settings
+from backend.models.enums import Platform
+from backend.models.schemas import DraftUpdate
 from backend.repositories.draft_repository import DraftRepository
 from backend.workers.dependencies import get_db_session
 from backend.workers.tasks.generate_draft import generate_draft_task
@@ -56,7 +58,10 @@ async def slack_slash_command(request: Request):
 
 
 @router.post("/interactions")
-async def slack_interactions(request: Request):
+async def slack_interactions(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+):
     form_data = await request.form()
     payload_str = form_data.get("payload")
 
@@ -101,7 +106,26 @@ async def slack_interactions(request: Request):
                     json={"trigger_id": trigger_id, "view": modal_view},
                 )
             return Response(status_code=200)
-
+        if action_id == "action_open_draft_details":
+            if draft_id.isdigit():
+                repo = DraftRepository(session)
+                db_draft = await repo.get_by_id(int(draft_id))
+                if db_draft:
+                    modal_view = build_approval_modal(
+                        topic=db_draft.topic,
+                        draft=db_draft.content or "",
+                        platform=db_draft.platform,
+                        draft_id=str(db_draft.id),
+                        channel_id="",  # Порожньо, бо відкриваємо не з чату
+                        message_ts="",  # Порожньо, бо відкриваємо не з чату
+                    )
+                    async with httpx.AsyncClient() as client:
+                        await client.post(
+                            "https://slack.com/api/views.open",
+                            headers=headers,
+                            json={"trigger_id": trigger_id, "view": modal_view},
+                        )
+            return Response(status_code=200)
         # --- ГРУПА 2: Дії з повідомленнями (response_url ОБОВ'ЯЗКОВИЙ) ---
         if action_id in [
             "action_publish_draft",
@@ -250,30 +274,42 @@ async def slack_interactions(request: Request):
                 "input_platform_select", {}
             )
             selected_option = block_state.get("selected_option")
-            platform = (
+            platform_raw = (
                 selected_option.get("value", "telegram")
                 if selected_option
                 else "telegram"
             )
+            platform = Platform(platform_raw) if platform_raw else None
 
-            logger.info(
-                "slack_edit_modal_submitted", user_id=user_id, platform=platform
-            )
-
+            # 1. СПОЧАТКУ витягуємо метадані (ID, канали, топік)
             metadata_parts = view.get("private_metadata", "").split("|")
             topic = metadata_parts[0] if len(metadata_parts) > 0 else "Медичний пост"
             draft_id = metadata_parts[1] if len(metadata_parts) > 1 else "temp_id"
             msg_channel_id = metadata_parts[2] if len(metadata_parts) > 2 else ""
             message_ts = metadata_parts[3] if len(metadata_parts) > 3 else ""
 
-            # ДОДАНО: Перемальовуємо повідомлення новою карткою з кнопками
+            logger.info(
+                "slack_edit_modal_submitted",
+                user_id=user_id,
+                platform=platform,
+                draft_id=draft_id,
+            )
+
+            # 2. ПОТІМ зберігаємо в базу даних
+            if draft_id.isdigit():
+                repo = DraftRepository(session)
+                await repo.update(
+                    int(draft_id), DraftUpdate(content=draft_content, platform=platform)
+                )
+
+            # 3. ПОТІМ перемальовуємо повідомлення новою карткою з кнопками
             if msg_channel_id and message_ts:
                 updated_blocks = build_draft_card(
                     topic=topic,
                     draft=draft_content,
                     user_id=user_id,
                     draft_id=draft_id,
-                    platform=platform,
+                    platform=platform.value if platform else "telegram",
                 )
                 async with httpx.AsyncClient() as client:
                     await client.post(
@@ -285,15 +321,17 @@ async def slack_interactions(request: Request):
                             "text": SLACK_UI["draft_ready_fallback"].format(
                                 topic=topic
                             ),
-                            "blocks": updated_blocks,  # ПОВЕРТАЄМО КНОПКИ З НОВИМИ ДАНИМИ
+                            "blocks": updated_blocks,
                         },
                     )
 
+            # 4. В КІНЦІ закриваємо модалку одним return
             return Response(
                 content=json.dumps({"response_action": "clear"}),
                 media_type="application/json",
                 status_code=200,
             )
+
         # --- СЦЕНАРІЙ 3: Завантаження гайдлайну ---
         elif callback_id == "modal_upload_guideline":
             files = (
