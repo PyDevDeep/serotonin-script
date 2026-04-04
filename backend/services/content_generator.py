@@ -65,7 +65,7 @@ class ContentGenerator:
         topic: str,
         platform: str,
         source_url: str | None = None,
-        max_retries: int = 2,
+        max_retries: int = 1,
     ) -> str:
         logger.info(
             "draft_generation_started",

@@ -8,6 +8,8 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+from backend.models.db_models import Base
+
 load_dotenv()
 
 config = context.config
@@ -36,7 +38,7 @@ def get_url():
 # 2. Встановлюємо URL в конфігурацію
 config.set_main_option("sqlalchemy.url", get_url())
 
-target_metadata = None
+target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

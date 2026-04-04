@@ -35,6 +35,16 @@ class Draft(Base):
     topic: Mapped[str] = mapped_column(String(255), nullable=False)
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    # --- НОВІ ПОЛЯ ---
+    platform: Mapped[str] = mapped_column(
+        String(50), nullable=False, server_default="telegram"
+    )
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # -----------------
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

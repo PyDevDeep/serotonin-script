@@ -32,11 +32,14 @@ class DraftBase(BaseModel):
 
 class DraftCreate(DraftBase):
     user_id: int
+    platform: Platform
 
 
 class DraftUpdate(BaseModel):
     content: Optional[str] = None
     status: Optional[DraftStatus] = None
+    platform: Optional[Platform] = None
+    scheduled_at: Optional[datetime] = None
 
 
 class DraftResponse(DraftBase, ORMModel):
@@ -44,6 +47,8 @@ class DraftResponse(DraftBase, ORMModel):
     user_id: int
     content: Optional[str]
     status: str
+    platform: str
+    scheduled_at: Optional[datetime]  # ДОДАНО
     created_at: datetime
     updated_at: datetime
 

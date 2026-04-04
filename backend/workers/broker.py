@@ -2,11 +2,13 @@ from typing import Any
 
 from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend
 
+# from .scheduled_post import scheduled_post_task
 from backend.config.settings import settings
 from backend.workers.middlewares.logging import StructlogMiddleware
 from backend.workers.middlewares.metrics import PrometheusMetricsMiddleware
 from backend.workers.middlewares.retry import RetryTrackerMiddleware
 
+# from .scheduled_post import scheduled_post_task
 redis_url = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/0"
 
 # Ініціалізуємо брокер з явно вказаною чергою (ізоляція від інших проєктів)

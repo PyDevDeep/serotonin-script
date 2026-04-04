@@ -13,6 +13,7 @@ class DraftStatus(str, Enum):
     GENERATED = "generated"
     FAILED = "failed"
     PUBLISHED = "published"
+    SCHEDULED = "scheduled"
 
 
 class TaskStatus(str, Enum):
