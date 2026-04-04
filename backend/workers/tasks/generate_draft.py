@@ -63,13 +63,16 @@ async def generate_draft_task(
             topic=e.topic,
             attempts=e.attempts,
         )
-        # ДОДАНО: Відправка повідомлення про провал валідації у Slack
+        # ВІДДАЄМО ДРАФТ З КНОПКАМИ, АЛЕ З АЛЕРТОМ (is_valid=False)
         if user_id and channel_id:
-            await notify_slack_on_failure(
+            await notify_slack_on_complete(
                 user_id=user_id,
                 channel_id=channel_id,
-                error_msg=f"Модель не пройшла валідацію після {e.attempts} спроб.\n\nОстанній драфт:\n{e.draft}",
+                draft=e.draft,
                 topic=topic,
+                draft_id=draft_id,
+                platform=platform,
+                is_valid=False,
             )
         raise
 

@@ -43,7 +43,13 @@ async def _send_slack_message(payload: dict[str, Any]) -> None:
 
 
 async def notify_slack_on_complete(
-    user_id: str, channel_id: str, draft: str, topic: str, draft_id: str, platform: str
+    user_id: str,
+    channel_id: str,
+    draft: str,
+    topic: str,
+    draft_id: str,
+    platform: str,
+    is_valid: bool = True,
 ) -> None:
     logger.info(
         "sending_slack_completion_notification", user_id=user_id, channel_id=channel_id
@@ -58,6 +64,7 @@ async def notify_slack_on_complete(
             user_id=user_id,
             draft_id=draft_id,
             platform=platform,
+            is_valid=is_valid,
         ),
     }
     await _send_slack_message(payload)

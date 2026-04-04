@@ -23,6 +23,9 @@ SLACK_UI = {
     "btn_edit": "Редагувати",
     "btn_regenerate": "Перегенерувати",
     "fact_check_ok": "✅ Fact-check: Пройдено",
+    "fact_check_failed": "❌ Fact-check: Провалено",
+    "validation_failed_header": "⚠️ Валідацію не пройдено | 📢 {platform}",
+    "validation_failed_warning": "🚨 *LLM-as-a-Judge забракував цей текст (галюцинації або стиль).* Ось найкращий згенерований варіант. Ви можете відредагувати його вручну або перегенерувати.",
     "fact_check_sources": "📚 Джерела: PubMed",
     # --- Modal ---
     "modal_title": "Редагування посту",

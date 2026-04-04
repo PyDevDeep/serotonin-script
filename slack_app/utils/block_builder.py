@@ -4,19 +4,52 @@ from backend.config.lexicon import SLACK_UI
 
 
 def build_draft_card(
-    topic: str, draft: str, user_id: str, draft_id: str, platform: str
+    topic: str,
+    draft: str,
+    user_id: str,
+    draft_id: str,
+    platform: str,
+    is_valid: bool = True,
 ) -> list[dict[str, Any]]:
-    """Генерує картку чернетки з кнопками дій."""
-    return [
+    """Генерує картку чернетки з кнопками дій. Якщо is_valid=False, додає попередження."""
+
+    header_text = (
+        f"{SLACK_UI['draft_ready_header'].format(topic=topic)} | 📢 {platform.upper()}"
+    )
+    if not is_valid:
+        header_text = SLACK_UI["validation_failed_header"].format(platform=platform.upper())
+
+    blocks: list[dict[str, Any]] = [
         {
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": f"{SLACK_UI['draft_ready_header'].format(topic=topic)} | 📢 {platform.upper()}",
+                "text": header_text,
                 "emoji": True,
             },
-        },
-        {"type": "section", "text": {"type": "mrkdwn", "text": f"```{draft}```"}},
+        }
+    ]
+
+    if not is_valid:
+        blocks.append(
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": SLACK_UI["validation_failed_warning"],
+                },
+            }
+        )
+
+    blocks.append(
+        {"type": "section", "text": {"type": "mrkdwn", "text": f"```{draft}```"}}
+    )
+
+    fact_check_status = (
+        SLACK_UI["fact_check_ok"] if is_valid else SLACK_UI["fact_check_failed"]
+    )
+
+    blocks.append(
         {
             "type": "context",
             "elements": [
@@ -26,10 +59,14 @@ def build_draft_card(
                 },
                 {
                     "type": "mrkdwn",
-                    "text": f"{SLACK_UI['fact_check_ok']} | {SLACK_UI['fact_check_sources']}",
+                    "text": f"{fact_check_status} | {SLACK_UI['fact_check_sources']}",
                 },
             ],
-        },
+        }
+    )
+
+    # Блок з кнопками залишається без змін, він просто додається в кінець
+    blocks.append(
         {
             "type": "actions",
             "elements": [
@@ -41,7 +78,7 @@ def build_draft_card(
                         "emoji": True,
                     },
                     "style": "primary",
-                    "value": f"{draft_id}|{platform}",  # ПРОШИВАЄМО ID ТА ПЛАТФОРМУ
+                    "value": f"{draft_id}|{platform}",
                     "action_id": "action_publish_draft",
                 },
                 {
@@ -76,8 +113,10 @@ def build_draft_card(
                     "action_id": "action_reject_draft",
                 },
             ],
-        },
-    ]
+        }
+    )
+
+    return blocks
 
 
 def build_approval_modal(
