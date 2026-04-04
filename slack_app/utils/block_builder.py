@@ -12,7 +12,7 @@ def build_draft_card(
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": SLACK_UI["draft_ready_header"].format(topic=topic),
+                "text": f"{SLACK_UI['draft_ready_header'].format(topic=topic)} | 📢 {platform.upper()}",
                 "emoji": True,
             },
         },

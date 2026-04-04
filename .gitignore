@@ -2,6 +2,9 @@
 knowledge_base/doctor_style
 knowledge_base/medical_guidelines
 test_output.txt
+AGENTS.md
+n8nac-config.json
+workflows
 # Python
 __pycache__/
 *.py[cod]
