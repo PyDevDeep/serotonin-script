@@ -14,6 +14,10 @@ from qdrant_client import AsyncQdrantClient
 
 from backend.config.settings import settings
 from backend.workers.broker import broker
+from backend.workers.callbacks import (
+    notify_slack_upload_failure,
+    notify_slack_upload_success,
+)
 
 logger = structlog.get_logger()
 
@@ -30,7 +34,9 @@ Settings.embed_model = OpenAIEmbedding(
 
 
 @broker.task(task_name="ingest_guideline_task", timeout=300)
-async def ingest_guideline_task(file_url: str, file_name: str) -> None:
+async def ingest_guideline_task(
+    file_url: str, file_name: str, user_id: str | None = None
+) -> None:  # Додано user_id
     logger.info("ingest_guideline_started", file_name=file_name)
 
     try:
@@ -79,8 +85,20 @@ async def ingest_guideline_task(file_url: str, file_name: str) -> None:
             "guideline_ingestion_success", file_name=file_name, chunks=len(documents)
         )
 
-        # TODO: Додати notify_slack_on_complete для сповіщення користувача про успіх (опціонально)
+        logger.info(
+            "guideline_ingestion_success", file_name=file_name, chunks=len(documents)
+        )
+
+        # ДОДАНО: Сповіщення про успіх
+        if user_id:
+            await notify_slack_upload_success(user_id=user_id, file_name=file_name)
 
     except Exception as e:
         logger.error("guideline_ingestion_failed", file_name=file_name, error=str(e))
+
+        # ДОДАНО: Сповіщення про помилку
+        if user_id:
+            await notify_slack_upload_failure(
+                user_id=user_id, file_name=file_name, error_msg=str(e)
+            )
         raise

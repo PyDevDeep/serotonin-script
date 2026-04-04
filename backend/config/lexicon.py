@@ -47,4 +47,7 @@ SLACK_UI = {
     "upload_modal_title": "База знань",
     "upload_modal_submit": "Завантажити",
     "upload_modal_input_label": "Оберіть файл (PDF/TXT)",
+    # --- Upload Notifications ---
+    "upload_success": "✅ Гайдлайн *{file_name}* успішно завантажено та векторизовано у базу знань!",
+    "upload_failure": "❌ *Помилка* обробки гайдлайну *{file_name}*.\n\nДеталі:\n```{error_msg}```",
 }

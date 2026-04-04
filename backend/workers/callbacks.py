@@ -94,3 +94,43 @@ async def notify_slack_on_failure(
         ],
     }
     await _send_slack_message(payload)
+
+
+async def notify_slack_upload_success(user_id: str, file_name: str) -> None:
+    """Відправляє повідомлення про успішну векторизацію гайдлайну."""
+    slack_token = (
+        settings.SLACK_BOT_TOKEN.get_secret_value()
+        if hasattr(settings.SLACK_BOT_TOKEN, "get_secret_value")
+        else settings.SLACK_BOT_TOKEN
+    )
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            "https://slack.com/api/chat.postMessage",
+            headers={"Authorization": f"Bearer {slack_token}"},
+            json={
+                "channel": user_id,
+                "text": SLACK_UI["upload_success"].format(file_name=file_name),
+            },
+        )
+
+
+async def notify_slack_upload_failure(
+    user_id: str, file_name: str, error_msg: str
+) -> None:
+    """Відправляє повідомлення про провал завантаження/векторизації."""
+    slack_token = (
+        settings.SLACK_BOT_TOKEN.get_secret_value()
+        if hasattr(settings.SLACK_BOT_TOKEN, "get_secret_value")
+        else settings.SLACK_BOT_TOKEN
+    )
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            "https://slack.com/api/chat.postMessage",
+            headers={"Authorization": f"Bearer {slack_token}"},
+            json={
+                "channel": user_id,
+                "text": SLACK_UI["upload_failure"].format(
+                    file_name=file_name, error_msg=error_msg
+                ),
+            },
+        )

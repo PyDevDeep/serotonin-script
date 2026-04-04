@@ -261,7 +261,6 @@ async def slack_interactions(request: Request):
             )
         # --- СЦЕНАРІЙ 3: Завантаження гайдлайну ---
         elif callback_id == "modal_upload_guideline":
-            # Slack повертає масив об'єктів файлів
             files = (
                 state_values.get("block_file_upload", {})
                 .get("input_file", {})
@@ -271,23 +270,7 @@ async def slack_interactions(request: Request):
                 return Response(status_code=400)
 
             file_info = files[0]
-            # file_url = file_info.get("url_private_download")
-            file_name = file_info.get("name")
-
-            logger.info("slack_file_uploaded", user_id=user_id, file_name=file_name)
-
-            # --- СЦЕНАРІЙ 3: Завантаження гайдлайну ---
-        elif callback_id == "modal_upload_guideline":
-            files = (
-                state_values.get("block_file_upload", {})
-                .get("input_file", {})
-                .get("files", [])
-            )
-            if not files:
-                return Response(status_code=400)
-
-            file_info = files[0]
-            file_url = file_info.get("url_private_download")  # РОЗКОМЕНТОВАНО
+            file_url = file_info.get("url_private_download")
             file_name = file_info.get("name")
 
             logger.info("slack_file_uploaded", user_id=user_id, file_name=file_name)
@@ -300,12 +283,6 @@ async def slack_interactions(request: Request):
                 status_code=200,
             )
 
-            # Закриваємо модалку
-            return Response(
-                content=json.dumps({"response_action": "clear"}),
-                media_type="application/json",
-                status_code=200,
-            )
     return Response(status_code=200)
 
 
