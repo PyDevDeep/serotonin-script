@@ -1,12 +1,16 @@
 from typing import Annotated
 
 import structlog
+from sqlalchemy.ext.asyncio import AsyncSession
 from taskiq import TaskiqDepends
 
+from backend.models.enums import DraftStatus
+from backend.models.schemas import DraftUpdate
+from backend.repositories.draft_repository import DraftRepository
 from backend.services.content_generator import ContentGenerator, JudgeFailedError
 from backend.workers.broker import broker
 from backend.workers.callbacks import notify_slack_on_complete, notify_slack_on_failure
-from backend.workers.dependencies import get_content_generator
+from backend.workers.dependencies import get_content_generator, get_db_session
 
 logger = structlog.get_logger()
 
@@ -17,6 +21,7 @@ async def generate_draft_task(
     topic: str,
     platform: str,
     generator: Annotated[ContentGenerator, TaskiqDepends(get_content_generator)],
+    session: Annotated[AsyncSession, TaskiqDepends(get_db_session)],
     source_url: str | None = None,
     user_id: str | None = None,
     channel_id: str | None = None,
@@ -42,7 +47,12 @@ async def generate_draft_task(
         logger.info(
             "background_task_success", task="generate_medical_draft", topic=topic
         )
-
+        # --- ДОДАНО: ЗБЕРЕЖЕННЯ ТЕКСТУ ТА СТАТУСУ В БД ---
+        if draft_id.isdigit():
+            repo = DraftRepository(session)
+            await repo.update(
+                int(draft_id), DraftUpdate(content=result, status=DraftStatus.GENERATED)
+            )
         # ДОДАНО: Відправка готового результату у Slack
         if user_id and channel_id:
             await notify_slack_on_complete(
@@ -63,6 +73,14 @@ async def generate_draft_task(
             topic=e.topic,
             attempts=e.attempts,
         )
+        # --- ДОДАНО: ЗБЕРЕЖЕННЯ "БРУДНОГО" ТЕКСТУ ---
+        if draft_id.isdigit():
+            repo = DraftRepository(session)
+            await repo.update(
+                int(draft_id), DraftUpdate(content=e.draft, status=DraftStatus.FAILED)
+            )
+
+        # ---------------------------------------------
         # ВІДДАЄМО ДРАФТ З КНОПКАМИ, АЛЕ З АЛЕРТОМ (is_valid=False)
         if user_id and channel_id:
             await notify_slack_on_complete(

@@ -1,15 +1,16 @@
 import json
-import uuid
 
 import httpx
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.lexicon import SLACK_UI
 from backend.config.settings import settings
-from backend.models.enums import Platform
-from backend.models.schemas import DraftUpdate
+from backend.models.db_models import User
+from backend.models.enums import DraftStatus, Platform
+from backend.models.schemas import DraftCreate, DraftUpdate
 from backend.repositories.draft_repository import DraftRepository
 from backend.workers.dependencies import get_db_session
 from backend.workers.tasks.generate_draft import generate_draft_task
@@ -148,6 +149,13 @@ async def slack_interactions(
 
             async with httpx.AsyncClient() as client:
                 if action_id == "action_publish_draft":
+                    # ДОДАНО: Змінюємо статус на Опубліковано
+                    if draft_id.isdigit():
+                        repo = DraftRepository(session)
+                        await repo.update(
+                            int(draft_id), DraftUpdate(status=DraftStatus.PUBLISHED)
+                        )
+
                     await publish_post_task.kiq(
                         post_id=draft_id, platform=platform, content=draft_text
                     )
@@ -211,19 +219,24 @@ async def slack_interactions(
         state_values = view.get("state", {}).get("values", {})
 
         # --- СЦЕНАРІЙ 1: Генерація нового драфту ---
+        # --- СЦЕНАРІЙ 1: Генерація нового драфту ---
         if callback_id == "modal_generate_draft":
-            channel_id = view.get("private_metadata")  # Дістаємо збережений канал
+            channel_id = view.get("private_metadata")
             topic = (
                 state_values.get("block_topic_input", {})
                 .get("input_topic", {})
                 .get("value", "")
                 .strip()
             )
-            platform = (
-                state_values.get("block_platform_select", {})
-                .get("input_platform_select", {})
-                .get("selected_option", {})
-                .get("value", "telegram")
+
+            block_state = state_values.get("block_platform_select", {}).get(
+                "input_platform_select", {}
+            )
+            selected_option = block_state.get("selected_option")
+            platform = Platform(
+                selected_option.get("value", "telegram")
+                if selected_option
+                else "telegram"
             )
 
             logger.info(
@@ -233,16 +246,34 @@ async def slack_interactions(
                 platform=platform,
             )
 
-            new_draft_id = str(uuid.uuid4())  # ГЕНЕРУЄМО УНІКАЛЬНИЙ ID
+            # --- ДОДАНО: СТВОРЕННЯ КОРИСТУВАЧА ТА ДРАФТУ В БД ---
+            # 1. Знаходимо або створюємо користувача (Slack ID)
+            user_query = await session.execute(
+                select(User).where(User.username == user_id)
+            )
+            db_user = user_query.scalar_one_or_none()
+            if not db_user:
+                db_user = User(username=user_id)
+                session.add(db_user)
+                await session.flush()
+
+            # 2. Створюємо драфт (статус pending)
+            repo = DraftRepository(session)
+            new_draft = await repo.create(
+                DraftCreate(topic=topic, platform=platform, user_id=db_user.id)
+            )
+            real_draft_id = str(new_draft.id)
+            # ---------------------------------------------------
+
+            # Передаємо РЕАЛЬНИЙ ID з бази замість UUID
             await generate_draft_task.kiq(  # type: ignore[call-overload]
                 topic=topic,
-                platform=platform,
+                platform=platform.value,
                 user_id=user_id,
                 channel_id=channel_id,
-                draft_id=new_draft_id,
+                draft_id=real_draft_id,
             )
 
-            # Відправляємо підтвердження в канал
             async with httpx.AsyncClient() as client:
                 await client.post(
                     "https://slack.com/api/chat.postMessage",
