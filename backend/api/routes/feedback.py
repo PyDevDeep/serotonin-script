@@ -3,10 +3,13 @@ import uuid
 
 import httpx
 import structlog
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.lexicon import SLACK_UI
 from backend.config.settings import settings
+from backend.repositories.draft_repository import DraftRepository
+from backend.workers.dependencies import get_db_session
 from backend.workers.tasks.generate_draft import generate_draft_task
 from backend.workers.tasks.ingest_guideline import ingest_guideline_task
 from backend.workers.tasks.publish_post import publish_post_task
@@ -321,29 +324,35 @@ async def slack_interactions(request: Request):
 
 
 @router.post("/events")
-async def slack_events(request: Request):
+async def slack_events(
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+):
     """Обробка Events API (наприклад, відкриття вкладки Home)."""
     data = await request.json()
 
-    # 1. Підтвердження URL для Slack (виконується один раз при налаштуванні)
     if data.get("type") == "url_verification":
         return {"challenge": data.get("challenge")}
 
     event = data.get("event", {})
     user_id = event.get("user")
 
-    # 2. Коли користувач відкриває вкладку Home — малюємо йому дашборд
     if event.get("type") == "app_home_opened":
+        # 1. Витягуємо останні 10 драфтів
+        repo = DraftRepository(session)
+        recent_drafts = await repo.get_recent_drafts(limit=10)
+
+        # 2. Рендеримо дашборд
         slack_token = (
             settings.SLACK_BOT_TOKEN.get_secret_value()
-            if settings.SLACK_BOT_TOKEN
-            else ""
+            if hasattr(settings.SLACK_BOT_TOKEN, "get_secret_value")
+            else settings.SLACK_BOT_TOKEN
         )
         async with httpx.AsyncClient() as client:
             await client.post(
                 "https://slack.com/api/views.publish",
                 headers={"Authorization": f"Bearer {slack_token}"},
-                json={"user_id": user_id, "view": build_app_home()},
+                json={"user_id": user_id, "view": build_app_home(drafts=recent_drafts)},
             )
 
     return Response(status_code=200)

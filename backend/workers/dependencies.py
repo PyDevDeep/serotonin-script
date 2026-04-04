@@ -1,11 +1,19 @@
-from typing import Annotated
+from typing import Annotated, AsyncGenerator
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from taskiq import TaskiqDepends
 
+from backend.api.dependencies import async_session_maker
 from backend.integrations.llm.router import LLMRouter
 from backend.services.content_generator import ContentGenerator
 from backend.services.fact_checker import FactChecker
 from backend.services.style_matcher import StyleMatcher
+
+
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Генерує асинхронну сесію БД для FastAPI та Taskiq."""
+    async with async_session_maker() as session:
+        yield session
 
 
 def get_llm_router() -> LLMRouter:

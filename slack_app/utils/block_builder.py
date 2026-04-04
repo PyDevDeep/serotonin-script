@@ -1,6 +1,7 @@
 from typing import Any
 
 from backend.config.lexicon import SLACK_UI
+from backend.models.db_models import Draft
 
 
 def build_draft_card(
@@ -17,7 +18,9 @@ def build_draft_card(
         f"{SLACK_UI['draft_ready_header'].format(topic=topic)} | 📢 {platform.upper()}"
     )
     if not is_valid:
-        header_text = SLACK_UI["validation_failed_header"].format(platform=platform.upper())
+        header_text = SLACK_UI["validation_failed_header"].format(
+            platform=platform.upper()
+        )
 
     blocks: list[dict[str, Any]] = [
         {
@@ -269,49 +272,98 @@ def build_generation_modal(channel_id: str) -> dict[str, Any]:
     }
 
 
-def build_app_home() -> dict[str, Any]:
-    return {
-        "type": "home",
-        "blocks": [
-            {
-                "type": "header",
-                "text": {
-                    "type": "plain_text",
-                    "text": SLACK_UI["home_welcome"],
-                    "emoji": True,
-                },
+def build_app_home(drafts: list[Draft] | None = None) -> dict[str, Any]:
+    if drafts is None:
+        drafts = []
+
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": SLACK_UI["home_welcome"],
+                "emoji": True,
             },
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": SLACK_UI["home_description"]},
+        },
+        {"type": "divider"},
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": SLACK_UI["home_btn_create"],
+                        "emoji": True,
+                    },
+                    "style": "primary",
+                    "action_id": "action_open_generation_modal",
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": SLACK_UI["home_btn_upload"],
+                        "emoji": True,
+                    },
+                    "action_id": "action_open_upload_modal",
+                },
+            ],
+        },
+        {"type": "divider"},
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": SLACK_UI["home_drafts_header"], "emoji": True},
+        },
+    ]
+
+    if not drafts:
+        blocks.append(
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": SLACK_UI["home_description"]},
-            },
-            {"type": "divider"},
-            {
-                "type": "actions",
-                "elements": [
-                    {
+                "text": {"type": "mrkdwn", "text": SLACK_UI["home_drafts_empty"]},
+            }
+        )
+    else:
+        for d in drafts:
+            status_emoji = "⏳"
+            if d.status == "published":
+                status_emoji = "✅"
+            elif d.status == "scheduled":
+                status_emoji = "🕒"
+            elif d.status == "failed":
+                status_emoji = "❌"
+
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": SLACK_UI["home_draft_card_text"].format(
+                            topic=d.topic,
+                            platform=d.platform.upper(),
+                            status_emoji=status_emoji,
+                            status=d.status,
+                        ),
+                    },
+                    "accessory": {
                         "type": "button",
                         "text": {
                             "type": "plain_text",
-                            "text": SLACK_UI["home_btn_create"],
+                            "text": SLACK_UI["home_draft_open_btn"],
                             "emoji": True,
                         },
-                        "style": "primary",
-                        "action_id": "action_open_generation_modal",
+                        "value": f"{d.id}|{d.platform}",
+                        "action_id": "action_open_draft_details",
                     },
-                    {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": SLACK_UI["home_btn_upload"],
-                            "emoji": True,
-                        },
-                        "action_id": "action_open_upload_modal",
-                    },
-                ],
-            },
-        ],
-    }
+                }
+            )
+
+    return {"type": "home", "blocks": blocks}
 
 
 def build_upload_modal() -> dict[str, Any]:

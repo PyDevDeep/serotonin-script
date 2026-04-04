@@ -46,6 +46,10 @@ SLACK_UI = {
     "home_description": "Це твій центр керування медичним контентом. Натисни кнопку нижче, щоб почати.",
     "home_btn_create": "✨ Створити новий пост",
     "home_btn_upload": "📚 Завантажити гайдлайн",
+    "home_drafts_header": "🗓 Останні драфти",
+    "home_drafts_empty": "_Поки що немає жодного драфту._",
+    "home_draft_card_text": "*{topic}*\nПлатформа: *{platform}* | Статус: {status_emoji} `{status}`",
+    "home_draft_open_btn": "📝 Відкрити",
     # --- Upload Modal ---
     "upload_modal_title": "База знань",
     "upload_modal_submit": "Завантажити",
