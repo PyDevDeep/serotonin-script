@@ -141,11 +141,16 @@ async def slack_interactions(request: Request):
                     )
 
                 elif action_id == "action_edit_draft":
+                    message_ts = payload.get("message", {}).get("ts", "")
+                    msg_channel_id = payload.get("container", {}).get("channel_id", "")
+
                     modal_view = build_approval_modal(
                         topic=topic,
                         draft=draft_text,
                         platform=platform,
                         draft_id=draft_id,
+                        channel_id=msg_channel_id,
+                        message_ts=message_ts,
                     )
                     await client.post(
                         "https://slack.com/api/views.open",
@@ -235,24 +240,44 @@ async def slack_interactions(request: Request):
                 .get("input_draft_content", {})
                 .get("value", "")
             )
+
+            # Надійний парсинг селектора платформи
+            block_state = state_values.get("block_platform_select", {}).get(
+                "input_platform_select", {}
+            )
+            selected_option = block_state.get("selected_option")
             platform = (
-                state_values.get("block_platform_select", {})
-                .get("input_platform_select", {})
-                .get("selected_option", {})
-                .get("value", "telegram")
+                selected_option.get("value", "telegram")
+                if selected_option
+                else "telegram"
             )
 
             logger.info(
                 "slack_edit_modal_submitted", user_id=user_id, platform=platform
             )
+
             metadata_parts = view.get("private_metadata", "").split("|")
-            draft_id = (
-                metadata_parts[1] if len(metadata_parts) > 1 else "temp_id"
-            )  # ВИТЯГУЄМО З МЕТАДАНИХ
+            draft_id = metadata_parts[1] if len(metadata_parts) > 1 else "temp_id"
+            msg_channel_id = metadata_parts[2] if len(metadata_parts) > 2 else ""
+            message_ts = metadata_parts[3] if len(metadata_parts) > 3 else ""
 
             await publish_post_task.kiq(
                 post_id=draft_id, platform=platform, content=draft_content
             )
+
+            # ДОДАНО: Знищуємо старе повідомлення з кнопками
+            if msg_channel_id and message_ts:
+                async with httpx.AsyncClient() as client:
+                    await client.post(
+                        "https://slack.com/api/chat.update",
+                        headers=headers,
+                        json={
+                            "channel": msg_channel_id,
+                            "ts": message_ts,
+                            "text": SLACK_UI["interact_approved_text"],
+                            "blocks": [],  # Порожній масив блоків видаляє картку і кнопки
+                        },
+                    )
 
             return Response(
                 content=json.dumps({"response_action": "clear"}),
@@ -275,7 +300,9 @@ async def slack_interactions(request: Request):
 
             logger.info("slack_file_uploaded", user_id=user_id, file_name=file_name)
 
-            await ingest_guideline_task.kiq(file_url=file_url, file_name=file_name)
+            await ingest_guideline_task.kiq(
+                file_url=file_url, file_name=file_name, user_id=user_id
+            )
 
             return Response(
                 content=json.dumps({"response_action": "clear"}),

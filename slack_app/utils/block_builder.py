@@ -81,12 +81,18 @@ def build_draft_card(
 
 
 def build_approval_modal(
-    topic: str, draft: str, platform: str = "telegram", draft_id: str = "unknown"
+    topic: str,
+    draft: str,
+    platform: str = "telegram",
+    draft_id: str = "unknown",
+    channel_id: str = "",
+    message_ts: str = "",
 ) -> dict[str, Any]:
+    """Генерує модальне вікно для редагування тексту перед публікацією."""
     return {
         "type": "modal",
         "callback_id": "modal_edit_draft",
-        "private_metadata": f"{topic}|{draft_id}",
+        "private_metadata": f"{topic}|{draft_id}|{channel_id}|{message_ts}",  # ПРОШИВАЄМО 4 ПАРАМЕТРИ
         "title": {"type": "plain_text", "text": SLACK_UI["modal_title"], "emoji": True},
         "submit": {
             "type": "plain_text",
