@@ -125,3 +125,10 @@ class TaskResponse(BaseModel):
     status: str
     result: Optional[str] = None
     error: Optional[str] = None
+
+
+# --- СХЕМА ДЛЯ N8N ---
+class PublishConfirmPayload(BaseModel):
+    post_id: str
+    platform: str
+    content: str

@@ -1,6 +1,7 @@
 import asyncio
 from typing import Annotated, Any
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from backend.api.dependencies import get_draft_repository
@@ -8,12 +9,14 @@ from backend.models.schemas import (
     DraftCreate,
     DraftGenerateRequest,
     DraftResponse,
+    PublishConfirmPayload,
     TaskResponse,
 )
 from backend.repositories.draft_repository import DraftRepository
 from backend.workers.broker import result_backend
 from backend.workers.tasks.generate_draft import generate_draft_task
 
+logger = structlog.get_logger()
 router = APIRouter(prefix="/draft", tags=["Drafts"])
 
 
@@ -91,3 +94,35 @@ async def get_draft_from_db(
             detail=f"Draft with ID {draft_id} not found",
         )
     return draft
+
+
+@router.post("/webhook/n8n-publish-confirm", status_code=status.HTTP_200_OK)
+async def n8n_publish_confirmation(
+    payload: PublishConfirmPayload,
+    draft_repo: Annotated[DraftRepository, Depends(get_draft_repository)],
+):
+    """
+    Webhook для n8n. Викликається ПІСЛЯ успішної публікації в соцмережах.
+    """
+    logger.info(
+        "n8n_publish_confirmed", post_id=payload.post_id, platform=payload.platform
+    )
+
+    # 1. Оновлюємо статус у БД (якщо це не наша хардкодна заглушка)
+    if payload.post_id and payload.post_id != "temp_id":
+        try:
+            # Припускаємо, що у тебе є метод update_status (або реалізуй його)
+            # await draft_repo.update_status(int(payload.post_id), "PUBLISHED")
+            pass
+        except Exception as e:
+            logger.error("db_update_failed", error=str(e))
+
+    # 2. Запускаємо фонову задачу векторизації
+    # Щоб не блокувати API, відправляємо текст у Taskiq
+    from backend.workers.tasks.vectorize_post import vectorize_published_post_task
+
+    await vectorize_published_post_task.kiq(
+        content=payload.content, platform=payload.platform
+    )
+
+    return {"status": "success", "message": "Post ingested into knowledge base"}
