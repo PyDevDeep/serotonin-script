@@ -13,6 +13,7 @@ from backend.workers.tasks.publish_post import publish_post_task
 from slack_app.utils.block_builder import (
     build_app_home,
     build_approval_modal,
+    build_draft_card,
     build_generation_modal,
     build_upload_modal,
 )
@@ -257,16 +258,20 @@ async def slack_interactions(request: Request):
             )
 
             metadata_parts = view.get("private_metadata", "").split("|")
+            topic = metadata_parts[0] if len(metadata_parts) > 0 else "Медичний пост"
             draft_id = metadata_parts[1] if len(metadata_parts) > 1 else "temp_id"
             msg_channel_id = metadata_parts[2] if len(metadata_parts) > 2 else ""
             message_ts = metadata_parts[3] if len(metadata_parts) > 3 else ""
 
-            await publish_post_task.kiq(
-                post_id=draft_id, platform=platform, content=draft_content
-            )
-
-            # ДОДАНО: Знищуємо старе повідомлення з кнопками
+            # ДОДАНО: Перемальовуємо повідомлення новою карткою з кнопками
             if msg_channel_id and message_ts:
+                updated_blocks = build_draft_card(
+                    topic=topic,
+                    draft=draft_content,
+                    user_id=user_id,
+                    draft_id=draft_id,
+                    platform=platform,
+                )
                 async with httpx.AsyncClient() as client:
                     await client.post(
                         "https://slack.com/api/chat.update",
@@ -274,8 +279,10 @@ async def slack_interactions(request: Request):
                         json={
                             "channel": msg_channel_id,
                             "ts": message_ts,
-                            "text": SLACK_UI["interact_approved_text"],
-                            "blocks": [],  # Порожній масив блоків видаляє картку і кнопки
+                            "text": SLACK_UI["draft_ready_fallback"].format(
+                                topic=topic
+                            ),
+                            "blocks": updated_blocks,  # ПОВЕРТАЄМО КНОПКИ З НОВИМИ ДАНИМИ
                         },
                     )
 
