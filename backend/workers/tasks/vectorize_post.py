@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import structlog
 from llama_index.core import Document, StorageContext, VectorStoreIndex
 from llama_index.core.settings import Settings
@@ -23,7 +25,9 @@ openai_key: str = (
 )
 
 # Налаштовуємо глобальну модель для векторизації
-embed_model = OpenAIEmbedding(model=settings.OPENAI_MODEL_EMBEDDING, api_key=openai_key)
+embed_model = OpenAIEmbedding(
+    model=settings.OPENAI_MODEL_EMBEDDING, dimensions=768, api_key=openai_key
+)
 Settings.embed_model = embed_model
 
 
@@ -35,17 +39,25 @@ async def vectorize_published_post_task(content: str, platform: str) -> None:
     logger.info("vectorization_started", platform=platform)
 
     try:
-        # 1. Підключаємось до Qdrant
+        # --- 1. ЗБЕРЕЖЕННЯ У MARKDOWN (Резервна копія) ---
+        md_file_path = Path("knowledge_base/doctor_style/posts/doctor_style_posts.md")
+        md_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Додаємо пост у кінець файлу з роздільником
+        with md_file_path.open("a", encoding="utf-8") as f:
+            f.write(f"\n\n---\n\n{content.strip()}")
+
+        logger.info("markdown_backup_success", file_path=str(md_file_path))
+
+        # --- 2. ВЕКТОРИЗАЦІЯ В QDRANT ---
         qdrant_url = getattr(settings, "QDRANT_URL", "http://127.0.0.1:6333")
         aclient = AsyncQdrantClient(url=qdrant_url)
 
-        # Передаємо AsyncQdrantClient в параметр aclient
         vector_store = QdrantVectorStore(
             aclient=aclient, collection_name="doctor_style"
         )
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
-        # 2. Створюємо документ із метаданими
         doc = Document(
             text=content,
             metadata={
@@ -55,16 +67,10 @@ async def vectorize_published_post_task(content: str, platform: str) -> None:
             },
         )
 
-        # 3. Векторизуємо та зберігаємо у БД асинхронно
-        # Якщо колекції немає, QdrantVectorStore створит її під капотом
-        # коли ми будемо використовувати aclient
-
-        # Створюємо порожній індекс, прив'язаний до Qdrant
         index = VectorStoreIndex.from_vector_store(  # type: ignore[reportUnknownMemberType]
             vector_store=vector_store, storage_context=storage_context
         )
 
-        # Вставляємо документ асинхронно
         await index.ainsert(doc)
 
         logger.info("vectorization_success", platform=platform)

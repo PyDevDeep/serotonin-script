@@ -43,7 +43,7 @@ async def _send_slack_message(payload: dict[str, Any]) -> None:
 
 
 async def notify_slack_on_complete(
-    user_id: str, channel_id: str, draft: str, topic: str
+    user_id: str, channel_id: str, draft: str, topic: str, draft_id: str
 ) -> None:
     logger.info(
         "sending_slack_completion_notification", user_id=user_id, channel_id=channel_id
@@ -52,7 +52,9 @@ async def notify_slack_on_complete(
     payload = {
         "channel": channel_id,
         "text": SLACK_UI["draft_ready_fallback"].format(topic=topic),
-        "blocks": build_draft_card(topic=topic, draft=draft, user_id=user_id),
+        "blocks": build_draft_card(
+            topic=topic, draft=draft, user_id=user_id, draft_id=draft_id
+        ),
     }
     await _send_slack_message(payload)
 

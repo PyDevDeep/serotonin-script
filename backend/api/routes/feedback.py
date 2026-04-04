@@ -1,4 +1,5 @@
 import json
+import uuid
 
 import httpx
 import structlog
@@ -71,7 +72,10 @@ async def slack_interactions(request: Request):
         action = payload.get("actions", [])[0]
         action_id = action.get("action_id")
         response_url = payload.get("response_url")
-
+        action_value = action.get("value", "temp_id|telegram")
+        value_parts = action_value.split("|")
+        draft_id = value_parts[0]
+        platform = value_parts[1] if len(value_parts) > 1 else "telegram"
         # --- ГРУПА 1: Дії, що відкривають модалки (response_url НЕ потрібен) ---
         if action_id == "action_open_upload_modal":
             modal_view = build_upload_modal()
@@ -116,7 +120,7 @@ async def slack_interactions(request: Request):
             async with httpx.AsyncClient() as client:
                 if action_id == "action_publish_draft":
                     await publish_post_task.kiq(
-                        post_id="temp_id", platform="telegram", content=draft_text
+                        post_id=draft_id, platform=platform, content=draft_text
                     )
                     await client.post(
                         response_url,
@@ -137,7 +141,10 @@ async def slack_interactions(request: Request):
 
                 elif action_id == "action_edit_draft":
                     modal_view = build_approval_modal(
-                        topic=topic, draft=draft_text, platform="telegram"
+                        topic=topic,
+                        draft=draft_text,
+                        platform=platform,
+                        draft_id=draft_id,
                     )
                     await client.post(
                         "https://slack.com/api/views.open",
@@ -149,9 +156,10 @@ async def slack_interactions(request: Request):
                     channel_id = str(payload.get("channel", {}).get("id", ""))
                     await generate_draft_task.kiq(  # type: ignore[call-overload]
                         topic=topic,
-                        platform="telegram",
+                        platform=platform,
                         user_id=user_id,
                         channel_id=channel_id,
+                        draft_id=draft_id,
                     )
                     await client.post(
                         response_url,
@@ -191,9 +199,13 @@ async def slack_interactions(request: Request):
                 platform=platform,
             )
 
-            # Запускаємо генерацію
+            new_draft_id = str(uuid.uuid4())  # ГЕНЕРУЄМО УНІКАЛЬНИЙ ID
             await generate_draft_task.kiq(  # type: ignore[call-overload]
-                topic=topic, platform=platform, user_id=user_id, channel_id=channel_id
+                topic=topic,
+                platform=platform,
+                user_id=user_id,
+                channel_id=channel_id,
+                draft_id=new_draft_id,
             )
 
             # Відправляємо підтвердження в канал
@@ -232,8 +244,13 @@ async def slack_interactions(request: Request):
             logger.info(
                 "slack_edit_modal_submitted", user_id=user_id, platform=platform
             )
+            metadata_parts = view.get("private_metadata", "").split("|")
+            draft_id = (
+                metadata_parts[1] if len(metadata_parts) > 1 else "temp_id"
+            )  # ВИТЯГУЄМО З МЕТАДАНИХ
+
             await publish_post_task.kiq(
-                post_id="temp_id", platform=platform, content=draft_content
+                post_id=draft_id, platform=platform, content=draft_content
             )
 
             return Response(

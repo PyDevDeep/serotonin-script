@@ -3,7 +3,9 @@ from typing import Any
 from backend.config.lexicon import SLACK_UI
 
 
-def build_draft_card(topic: str, draft: str, user_id: str) -> list[dict[str, Any]]:
+def build_draft_card(
+    topic: str, draft: str, user_id: str, draft_id: str
+) -> list[dict[str, Any]]:
     """Генерує картку чернетки з кнопками дій."""
     return [
         {
@@ -39,7 +41,7 @@ def build_draft_card(topic: str, draft: str, user_id: str) -> list[dict[str, Any
                         "emoji": True,
                     },
                     "style": "primary",
-                    "value": "publish",
+                    "value": draft_id,
                     "action_id": "action_publish_draft",
                 },
                 {
@@ -49,7 +51,7 @@ def build_draft_card(topic: str, draft: str, user_id: str) -> list[dict[str, Any
                         "text": SLACK_UI["btn_edit"],
                         "emoji": True,
                     },
-                    "value": "edit",
+                    "value": draft_id,
                     "action_id": "action_edit_draft",
                 },
                 {
@@ -79,13 +81,12 @@ def build_draft_card(topic: str, draft: str, user_id: str) -> list[dict[str, Any
 
 
 def build_approval_modal(
-    topic: str, draft: str, platform: str = "telegram"
+    topic: str, draft: str, platform: str = "telegram", draft_id: str = "unknown"
 ) -> dict[str, Any]:
-    """Генерує модальне вікно для редагування тексту перед публікацією."""
     return {
         "type": "modal",
         "callback_id": "modal_edit_draft",
-        "private_metadata": topic,  # Зберігаємо тему для контексту
+        "private_metadata": f"{topic}|{draft_id}",
         "title": {"type": "plain_text", "text": SLACK_UI["modal_title"], "emoji": True},
         "submit": {
             "type": "plain_text",

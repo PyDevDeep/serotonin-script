@@ -4,7 +4,6 @@ import structlog
 from taskiq import TaskiqDepends
 
 from backend.services.content_generator import ContentGenerator, JudgeFailedError
-from backend.workers.broker import broker
 from backend.workers.callbacks import notify_slack_on_complete, notify_slack_on_failure
 from backend.workers.dependencies import get_content_generator
 
@@ -12,7 +11,6 @@ logger = structlog.get_logger()
 
 
 # Збільшено timeout до 180 секунд через наявність циклу LLM-as-a-Judge та Retries
-@broker.task(task_name="generate_medical_draft", timeout=180)
 async def generate_draft_task(
     topic: str,
     platform: str,
@@ -20,6 +18,7 @@ async def generate_draft_task(
     source_url: str | None = None,
     user_id: str | None = None,
     channel_id: str | None = None,
+    draft_id: str = "temp_id",
 ) -> str:
     """
     Фонова задача для генерації медичного контенту.
@@ -45,7 +44,11 @@ async def generate_draft_task(
         # ДОДАНО: Відправка готового результату у Slack
         if user_id and channel_id:
             await notify_slack_on_complete(
-                user_id=user_id, channel_id=channel_id, draft=result, topic=topic
+                user_id=user_id,
+                channel_id=channel_id,
+                draft=result,
+                topic=topic,
+                draft_id=draft_id,
             )
 
         return result
