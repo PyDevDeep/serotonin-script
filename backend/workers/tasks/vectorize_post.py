@@ -1,8 +1,3 @@
-"""
-File: backend/workers/tasks/vectorize_post.py
-Task: 6.4.1 - RAG Feedback Loop (Continuous Learning via OpenAI)
-"""
-
 import structlog
 from llama_index.core import Document, StorageContext, VectorStoreIndex
 from llama_index.core.settings import Settings
@@ -21,7 +16,11 @@ logger = structlog.get_logger()
 
 # Витягуємо токен безпечно (Pydantic SecretStr)
 _raw_key = settings.OPENAI_API_KEY
-openai_key: str = _raw_key.get_secret_value() if hasattr(_raw_key, "get_secret_value") else str(_raw_key)
+openai_key: str = (
+    _raw_key.get_secret_value()
+    if hasattr(_raw_key, "get_secret_value")
+    else str(_raw_key)
+)
 
 # Налаштовуємо глобальну модель для векторизації
 embed_model = OpenAIEmbedding(model=settings.OPENAI_MODEL_EMBEDDING, api_key=openai_key)
@@ -38,9 +37,12 @@ async def vectorize_published_post_task(content: str, platform: str) -> None:
     try:
         # 1. Підключаємось до Qdrant
         qdrant_url = getattr(settings, "QDRANT_URL", "http://127.0.0.1:6333")
-        client = AsyncQdrantClient(url=qdrant_url)
+        aclient = AsyncQdrantClient(url=qdrant_url)
 
-        vector_store = QdrantVectorStore(aclient=client, collection_name="doctor_style")
+        # Передаємо AsyncQdrantClient в параметр aclient
+        vector_store = QdrantVectorStore(
+            aclient=aclient, collection_name="doctor_style"
+        )
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
         # 2. Створюємо документ із метаданими
@@ -53,10 +55,17 @@ async def vectorize_published_post_task(content: str, platform: str) -> None:
             },
         )
 
-        # 3. Векторизуємо та зберігаємо у БД
-        VectorStoreIndex.from_documents(
-            [doc], storage_context=storage_context, show_progress=False
+        # 3. Векторизуємо та зберігаємо у БД асинхронно
+        # Якщо колекції немає, QdrantVectorStore створит її під капотом
+        # коли ми будемо використовувати aclient
+
+        # Створюємо порожній індекс, прив'язаний до Qdrant
+        index = VectorStoreIndex.from_vector_store(  # type: ignore[reportUnknownMemberType]
+            vector_store=vector_store, storage_context=storage_context
         )
+
+        # Вставляємо документ асинхронно
+        await index.ainsert(doc)
 
         logger.info("vectorization_success", platform=platform)
     except Exception as e:
