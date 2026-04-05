@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 import httpx
 import structlog
@@ -21,6 +22,7 @@ from slack_app.utils.block_builder import (
     build_approval_modal,
     build_draft_card,
     build_generation_modal,
+    build_schedule_modal,
     build_upload_modal,
 )
 
@@ -117,8 +119,31 @@ async def slack_interactions(
                         draft=db_draft.content or "",
                         platform=db_draft.platform,
                         draft_id=str(db_draft.id),
-                        channel_id="",  # Порожньо, бо відкриваємо не з чату
-                        message_ts="",  # Порожньо, бо відкриваємо не з чату
+                        channel_id="",
+                        message_ts="",
+                    )
+                    async with httpx.AsyncClient() as client:
+                        await client.post(
+                            "https://slack.com/api/views.open",
+                            headers=headers,
+                            json={"trigger_id": trigger_id, "view": modal_view},
+                        )
+            return Response(status_code=200)
+
+        if action_id == "action_schedule_draft":
+            if draft_id.isdigit():
+                repo = DraftRepository(session)
+                db_draft = await repo.get_by_id(int(draft_id))
+                if db_draft:
+                    sched_ts = (
+                        int(db_draft.scheduled_at.timestamp())
+                        if db_draft.scheduled_at
+                        else None
+                    )
+                    modal_view = build_schedule_modal(
+                        draft_id=draft_id,
+                        platform=platform,
+                        scheduled_at=sched_ts,
                     )
                     async with httpx.AsyncClient() as client:
                         await client.post(
@@ -363,7 +388,51 @@ async def slack_interactions(
                 status_code=200,
             )
 
-        # --- СЦЕНАРІЙ 3: Завантаження гайдлайну ---
+        # --- СЦЕНАРІЙ 3: Планування публікації ---
+        elif callback_id == "modal_schedule_draft":
+            metadata_parts = view.get("private_metadata", "").split("|")
+            draft_id = metadata_parts[0] if len(metadata_parts) > 0 else ""
+            platform = metadata_parts[1] if len(metadata_parts) > 1 else "telegram"
+
+            schedule_timestamp = (
+                state_values.get("block_schedule_time", {})
+                .get("input_schedule_time", {})
+                .get("selected_date_time")
+            )
+
+            if not schedule_timestamp or not draft_id.isdigit():
+                return Response(
+                    content=json.dumps({
+                        "response_action": "errors",
+                        "errors": {
+                            "block_schedule_time": SLACK_UI["schedule_no_time_error"]
+                        },
+                    }),
+                    media_type="application/json",
+                    status_code=200,
+                )
+
+            scheduled_at = datetime.fromtimestamp(int(schedule_timestamp), tz=timezone.utc)
+            repo = DraftRepository(session)
+            await repo.update(
+                int(draft_id),
+                DraftUpdate(status=DraftStatus.SCHEDULED, scheduled_at=scheduled_at),
+            )
+
+            logger.info(
+                "draft_scheduled",
+                draft_id=draft_id,
+                platform=platform,
+                scheduled_at=scheduled_at.isoformat(),
+            )
+
+            return Response(
+                content=json.dumps({"response_action": "clear"}),
+                media_type="application/json",
+                status_code=200,
+            )
+
+        # --- СЦЕНАРІЙ 4: Завантаження гайдлайну ---
         elif callback_id == "modal_upload_guideline":
             files = (
                 state_values.get("block_file_upload", {})
@@ -406,10 +475,14 @@ async def slack_events(
     event = data.get("event", {})
     user_id = event.get("user")
 
+    logger.info("slack_event_received", event_type=event.get("type"), user_id=user_id)
+
     if event.get("type") == "app_home_opened":
         # 1. Витягуємо останні 10 драфтів
         repo = DraftRepository(session)
         recent_drafts = await repo.get_recent_drafts(limit=10)
+
+        logger.info("slack_home_opened", user_id=user_id, drafts_count=len(recent_drafts))
 
         # 2. Рендеримо дашборд
         slack_token = (
@@ -417,11 +490,17 @@ async def slack_events(
             if hasattr(settings.SLACK_BOT_TOKEN, "get_secret_value")
             else settings.SLACK_BOT_TOKEN
         )
+        home_view = build_app_home(drafts=recent_drafts)
         async with httpx.AsyncClient() as client:
-            await client.post(
+            res = await client.post(
                 "https://slack.com/api/views.publish",
                 headers={"Authorization": f"Bearer {slack_token}"},
-                json={"user_id": user_id, "view": build_app_home(drafts=recent_drafts)},
+                json={"user_id": user_id, "view": home_view},
             )
+            resp_data = res.json()
+            if not resp_data.get("ok"):
+                logger.error("slack_home_publish_error", error=resp_data)
+            else:
+                logger.info("slack_home_published", user_id=user_id)
 
     return Response(status_code=200)

@@ -57,4 +57,11 @@ SLACK_UI = {
     # --- Upload Notifications ---
     "upload_success": "✅ Гайдлайн *{file_name}* успішно завантажено та векторизовано у базу знань!",
     "upload_failure": "❌ *Помилка* обробки гайдлайну *{file_name}*.\n\nДеталі:\n```{error_msg}```",
+    # --- Schedule ---
+    "btn_schedule": "🕒 Запланувати",
+    "schedule_modal_title": "Планування публікації",
+    "schedule_modal_submit": "Запланувати",
+    "schedule_modal_label": "📅 Час публікації (UTC)",
+    "schedule_success": "🕒 Пост успішно заплановано на *{scheduled_at}* UTC!\n\n_Ви можете побачити його у вкладці Home._",
+    "schedule_no_time_error": "⚠️ Вкажіть час публікації у формі нижче.",
 }

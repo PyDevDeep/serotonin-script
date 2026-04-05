@@ -88,6 +88,16 @@ def build_draft_card(
                     "type": "button",
                     "text": {
                         "type": "plain_text",
+                        "text": SLACK_UI["btn_schedule"],
+                        "emoji": True,
+                    },
+                    "value": f"{draft_id}|{platform}",
+                    "action_id": "action_schedule_draft",
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
                         "text": SLACK_UI["btn_edit"],
                         "emoji": True,
                     },
@@ -193,6 +203,37 @@ def build_approval_modal(
                     "emoji": True,
                 },
             },
+        ],
+    }
+
+
+def build_schedule_modal(draft_id: str, platform: str, scheduled_at: int | None = None) -> dict[str, Any]:
+    """Генерує мінімальну модалку для вибору часу планування публікації."""
+    element: dict[str, Any] = {
+        "type": "datetimepicker",
+        "action_id": "input_schedule_time",
+    }
+    if scheduled_at is not None:
+        element["initial_date_time"] = scheduled_at
+
+    return {
+        "type": "modal",
+        "callback_id": "modal_schedule_draft",
+        "private_metadata": f"{draft_id}|{platform}",
+        "title": {"type": "plain_text", "text": SLACK_UI["schedule_modal_title"], "emoji": True},
+        "submit": {"type": "plain_text", "text": SLACK_UI["schedule_modal_submit"], "emoji": True},
+        "close": {"type": "plain_text", "text": SLACK_UI["modal_cancel"], "emoji": True},
+        "blocks": [
+            {
+                "type": "input",
+                "block_id": "block_schedule_time",
+                "element": element,
+                "label": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["schedule_modal_label"],
+                    "emoji": True,
+                },
+            }
         ],
     }
 
