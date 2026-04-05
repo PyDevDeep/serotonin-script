@@ -52,6 +52,10 @@ SLACK_UI = {
     "home_draft_open_btn": "📝 Відкрити",
     "home_btn_next_page": "Наступні →",
     "home_btn_prev_page": "← Попередні",
+    "status_emoji_pending": "⏳",
+    "status_emoji_published": "✅",
+    "status_emoji_scheduled": "🕒",
+    "status_emoji_failed": "❌",
     # --- Upload Modal ---
     "upload_modal_title": "База знань",
     "upload_modal_submit": "Завантажити",

@@ -447,13 +447,7 @@ def build_app_home(drafts: list[Draft] | None = None, offset: int = 0, page_size
         )
     else:
         for d in drafts:
-            status_emoji = "⏳"
-            if d.status == "published":
-                status_emoji = "✅"
-            elif d.status == "scheduled":
-                status_emoji = "🕒"
-            elif d.status == "failed":
-                status_emoji = "❌"
+            status_emoji = SLACK_UI.get(f"status_emoji_{d.status}", SLACK_UI["status_emoji_pending"])
 
             blocks.append(
                 {
@@ -480,27 +474,27 @@ def build_app_home(drafts: list[Draft] | None = None, offset: int = 0, page_size
                 }
             )
 
-        pagination_elements: list[dict[str, Any]] = []
-        if offset > 0:
-            pagination_elements.append(
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": SLACK_UI["home_btn_prev_page"], "emoji": True},
-                    "value": str(offset - page_size),
-                    "action_id": "action_home_drafts_page",
-                }
-            )
-        if len(drafts) == page_size:
-            pagination_elements.append(
-                {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": SLACK_UI["home_btn_next_page"], "emoji": True},
-                    "value": str(offset + page_size),
-                    "action_id": "action_home_drafts_page",
-                }
-            )
-        if pagination_elements:
-            blocks.append({"type": "actions", "elements": pagination_elements})
+    pagination_elements: list[dict[str, Any]] = []
+    if offset > 0:
+        pagination_elements.append(
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": SLACK_UI["home_btn_prev_page"], "emoji": True},
+                "value": str(offset - page_size),
+                "action_id": "action_home_drafts_page",
+            }
+        )
+    if len(drafts) == page_size:
+        pagination_elements.append(
+            {
+                "type": "button",
+                "text": {"type": "plain_text", "text": SLACK_UI["home_btn_next_page"], "emoji": True},
+                "value": str(offset + page_size),
+                "action_id": "action_home_drafts_page",
+            }
+        )
+    if pagination_elements:
+        blocks.append({"type": "actions", "elements": pagination_elements})
 
     return {"type": "home", "blocks": blocks}
 
