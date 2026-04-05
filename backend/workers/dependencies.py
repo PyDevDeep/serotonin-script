@@ -13,7 +13,14 @@ from backend.services.style_matcher import StyleMatcher
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Генерує асинхронну сесію БД для FastAPI та Taskiq."""
     async with async_session_maker() as session:
-        yield session
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 
 def get_llm_router() -> LLMRouter:
