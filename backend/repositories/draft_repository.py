@@ -4,6 +4,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.db_models import Draft
+from backend.models.enums import DraftStatus
 from backend.models.schemas import DraftCreate, DraftUpdate
 
 
@@ -45,8 +46,12 @@ class DraftRepository:
     async def get_recent_drafts(
         self, limit: int = 10, offset: int = 0, platform: str | None = None
     ) -> list[Draft]:
-        """Витягує останні драфти (для Дашборду в Slack)"""
-        stmt = select(Draft).order_by(Draft.updated_at.desc())
+        """Витягує останні драфти (для Дашборду в Slack), виключаючи відхилені."""
+        stmt = (
+            select(Draft)
+            .where(Draft.status != DraftStatus.REJECTED)
+            .order_by(Draft.updated_at.desc())
+        )
         if platform:
             stmt = stmt.where(Draft.platform == platform)
         stmt = stmt.limit(limit).offset(offset)

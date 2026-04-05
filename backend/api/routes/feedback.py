@@ -239,6 +239,11 @@ async def slack_interactions(
                     )
 
                 elif action_id == "action_reject_draft":
+                    if draft_id.isdigit():
+                        repo = DraftRepository(session)
+                        await repo.update(
+                            int(draft_id), DraftUpdate(status=DraftStatus.REJECTED)
+                        )
                     await client.post(
                         response_url,
                         json={
