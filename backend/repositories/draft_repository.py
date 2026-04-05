@@ -43,13 +43,18 @@ class DraftRepository:
         return result.scalar_one_or_none()
 
     async def get_recent_drafts(
-        self, limit: int = 10, platform: str | None = None
+        self, limit: int = 10, offset: int = 0, platform: str | None = None
     ) -> list[Draft]:
         """Витягує останні драфти (для Дашборду в Slack)"""
-        stmt = select(Draft).order_by(Draft.updated_at.desc())
+        active_statuses = ("pending", "generating", "generated", "scheduled")
+        stmt = (
+            select(Draft)
+            .where(Draft.status.in_(active_statuses))
+            .order_by(Draft.updated_at.desc())
+        )
         if platform:
             stmt = stmt.where(Draft.platform == platform)
-        stmt = stmt.limit(limit)
+        stmt = stmt.limit(limit).offset(offset)
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())

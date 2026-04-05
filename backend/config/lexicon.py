@@ -50,6 +50,8 @@ SLACK_UI = {
     "home_drafts_empty": "_Поки що немає жодного драфту._",
     "home_draft_card_text": "*{topic}*\nПлатформа: *{platform}* | Статус: {status_emoji} `{status}`",
     "home_draft_open_btn": "📝 Відкрити",
+    "home_btn_next_page": "Наступні →",
+    "home_btn_prev_page": "← Попередні",
     # --- Upload Modal ---
     "upload_modal_title": "База знань",
     "upload_modal_submit": "Завантажити",
@@ -57,6 +59,15 @@ SLACK_UI = {
     # --- Upload Notifications ---
     "upload_success": "✅ Гайдлайн *{file_name}* успішно завантажено та векторизовано у базу знань!",
     "upload_failure": "❌ *Помилка* обробки гайдлайну *{file_name}*.\n\nДеталі:\n```{error_msg}```",
+    # --- Manual Post Modal ---
+    "home_btn_manual_post": "✏️ Написати пост",
+    "manual_post_modal_title": "Новий пост вручну",
+    "manual_post_modal_submit": "Опублікувати / Запланувати",
+    "manual_post_modal_content_label": "Текст публікації",
+    "manual_post_modal_platform_label": "Платформа",
+    "manual_post_modal_schedule_label": "📅 Запланувати (UTC, необов'язково)",
+    "manual_post_published": "✅ Пост опубліковано!",
+    "manual_post_scheduled": "🕒 Пост заплановано на *{scheduled_at}* UTC!",
     # --- Schedule ---
     "btn_schedule": "🕒 Запланувати",
     "schedule_modal_title": "Планування публікації",

@@ -313,7 +313,74 @@ def build_generation_modal(channel_id: str) -> dict[str, Any]:
     }
 
 
-def build_app_home(drafts: list[Draft] | None = None) -> dict[str, Any]:
+def build_manual_post_modal() -> dict[str, Any]:
+    """Генерує модалку для ручного написання і публікації/планування поста."""
+    return {
+        "type": "modal",
+        "callback_id": "modal_manual_post",
+        "title": {"type": "plain_text", "text": SLACK_UI["manual_post_modal_title"], "emoji": True},
+        "submit": {"type": "plain_text", "text": SLACK_UI["manual_post_modal_submit"], "emoji": True},
+        "close": {"type": "plain_text", "text": SLACK_UI["modal_cancel"], "emoji": True},
+        "blocks": [
+            {
+                "type": "input",
+                "block_id": "block_manual_content",
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "input_manual_content",
+                    "multiline": True,
+                    "placeholder": {
+                        "type": "plain_text",
+                        "text": "Введіть текст вашої публікації...",
+                    },
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["manual_post_modal_content_label"],
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "input",
+                "block_id": "block_platform_select",
+                "element": {
+                    "type": "static_select",
+                    "action_id": "input_platform_select",
+                    "initial_option": {
+                        "text": {"type": "plain_text", "text": "Telegram"},
+                        "value": "telegram",
+                    },
+                    "options": [
+                        {"text": {"type": "plain_text", "text": "Telegram"}, "value": "telegram"},
+                        {"text": {"type": "plain_text", "text": "Twitter"}, "value": "twitter"},
+                        {"text": {"type": "plain_text", "text": "Threads"}, "value": "threads"},
+                    ],
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["manual_post_modal_platform_label"],
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "input",
+                "block_id": "block_schedule_time",
+                "optional": True,
+                "element": {
+                    "type": "datetimepicker",
+                    "action_id": "input_schedule_time",
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["manual_post_modal_schedule_label"],
+                    "emoji": True,
+                },
+            },
+        ],
+    }
+
+
+def build_app_home(drafts: list[Draft] | None = None, offset: int = 0, page_size: int = 10) -> dict[str, Any]:
     if drafts is None:
         drafts = []
 
@@ -352,6 +419,15 @@ def build_app_home(drafts: list[Draft] | None = None) -> dict[str, Any]:
                         "emoji": True,
                     },
                     "action_id": "action_open_upload_modal",
+                },
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": SLACK_UI["home_btn_manual_post"],
+                        "emoji": True,
+                    },
+                    "action_id": "action_open_manual_post_modal",
                 },
             ],
         },
@@ -403,6 +479,28 @@ def build_app_home(drafts: list[Draft] | None = None) -> dict[str, Any]:
                     },
                 }
             )
+
+        pagination_elements: list[dict[str, Any]] = []
+        if offset > 0:
+            pagination_elements.append(
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": SLACK_UI["home_btn_prev_page"], "emoji": True},
+                    "value": str(offset - page_size),
+                    "action_id": "action_home_drafts_page",
+                }
+            )
+        if len(drafts) == page_size:
+            pagination_elements.append(
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": SLACK_UI["home_btn_next_page"], "emoji": True},
+                    "value": str(offset + page_size),
+                    "action_id": "action_home_drafts_page",
+                }
+            )
+        if pagination_elements:
+            blocks.append({"type": "actions", "elements": pagination_elements})
 
     return {"type": "home", "blocks": blocks}
 

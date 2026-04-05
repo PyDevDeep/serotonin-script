@@ -22,6 +22,7 @@ from slack_app.utils.block_builder import (
     build_approval_modal,
     build_draft_card,
     build_generation_modal,
+    build_manual_post_modal,
     build_schedule_modal,
     build_upload_modal,
 )
@@ -97,6 +98,29 @@ async def slack_interactions(
                     "https://slack.com/api/views.open",
                     headers=headers,
                     json={"trigger_id": trigger_id, "view": modal_view},
+                )
+            return Response(status_code=200)
+
+        if action_id == "action_open_manual_post_modal":
+            modal_view = build_manual_post_modal()
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    "https://slack.com/api/views.open",
+                    headers=headers,
+                    json={"trigger_id": trigger_id, "view": modal_view},
+                )
+            return Response(status_code=200)
+
+        if action_id == "action_home_drafts_page":
+            page_offset = int(action_value) if action_value.isdigit() else 0
+            repo = DraftRepository(session)
+            drafts = await repo.get_recent_drafts(limit=10, offset=page_offset)
+            home_view = build_app_home(drafts=drafts, offset=page_offset)
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    "https://slack.com/api/views.publish",
+                    headers=headers,
+                    json={"user_id": user_id, "view": home_view},
                 )
             return Response(status_code=200)
 
@@ -244,7 +268,6 @@ async def slack_interactions(
         state_values = view.get("state", {}).get("values", {})
 
         # --- СЦЕНАРІЙ 1: Генерація нового драфту ---
-        # --- СЦЕНАРІЙ 1: Генерація нового драфту ---
         if callback_id == "modal_generate_draft":
             channel_id = view.get("private_metadata")
             topic = (
@@ -388,7 +411,81 @@ async def slack_interactions(
                 status_code=200,
             )
 
-        # --- СЦЕНАРІЙ 3: Планування публікації ---
+        # --- СЦЕНАРІЙ 3: Ручний пост ---
+        elif callback_id == "modal_manual_post":
+            content = (
+                state_values.get("block_manual_content", {})
+                .get("input_manual_content", {})
+                .get("value", "")
+                .strip()
+            )
+
+            block_state = state_values.get("block_platform_select", {}).get(
+                "input_platform_select", {}
+            )
+            selected_option = block_state.get("selected_option")
+            platform_raw = selected_option.get("value", "telegram") if selected_option else "telegram"
+            platform = Platform(platform_raw)
+
+            schedule_timestamp = (
+                state_values.get("block_schedule_time", {})
+                .get("input_schedule_time", {})
+                .get("selected_date_time")
+            )
+            scheduled_at = (
+                datetime.fromtimestamp(int(schedule_timestamp), tz=timezone.utc)
+                if schedule_timestamp
+                else None
+            )
+
+            # Знаходимо або створюємо користувача
+            user_query = await session.execute(select(User).where(User.username == user_id))
+            db_user = user_query.scalar_one_or_none()
+            if not db_user:
+                db_user = User(username=user_id)
+                session.add(db_user)
+                await session.flush()
+
+            repo = DraftRepository(session)
+
+            if scheduled_at:
+                new_draft = await repo.create(
+                    DraftCreate(topic=content[:80], platform=platform, user_id=db_user.id)
+                )
+                await repo.update(
+                    new_draft.id,
+                    DraftUpdate(
+                        content=content,
+                        status=DraftStatus.SCHEDULED,
+                        scheduled_at=scheduled_at,
+                    ),
+                )
+                logger.info(
+                    "manual_post_scheduled",
+                    user_id=user_id,
+                    platform=platform,
+                    scheduled_at=scheduled_at.isoformat(),
+                )
+            else:
+                new_draft = await repo.create(
+                    DraftCreate(topic=content[:80], platform=platform, user_id=db_user.id)
+                )
+                await repo.update(
+                    new_draft.id,
+                    DraftUpdate(content=content, status=DraftStatus.PUBLISHED),
+                )
+                await publish_post_task.kiq(
+                    post_id=str(new_draft.id), platform=platform.value, content=content
+                )
+                logger.info("manual_post_published", user_id=user_id, platform=platform)
+
+            return Response(
+                content=json.dumps({"response_action": "clear"}),
+                media_type="application/json",
+                status_code=200,
+            )
+
+        # --- СЦЕНАРІЙ 4: Планування публікації ---
         elif callback_id == "modal_schedule_draft":
             metadata_parts = view.get("private_metadata", "").split("|")
             draft_id = metadata_parts[0] if len(metadata_parts) > 0 else ""
@@ -432,7 +529,7 @@ async def slack_interactions(
                 status_code=200,
             )
 
-        # --- СЦЕНАРІЙ 4: Завантаження гайдлайну ---
+        # --- СЦЕНАРІЙ 5: Завантаження гайдлайну ---
         elif callback_id == "modal_upload_guideline":
             files = (
                 state_values.get("block_file_upload", {})
@@ -490,7 +587,7 @@ async def slack_events(
             if hasattr(settings.SLACK_BOT_TOKEN, "get_secret_value")
             else settings.SLACK_BOT_TOKEN
         )
-        home_view = build_app_home(drafts=recent_drafts)
+        home_view = build_app_home(drafts=recent_drafts, offset=0)
         async with httpx.AsyncClient() as client:
             res = await client.post(
                 "https://slack.com/api/views.publish",
