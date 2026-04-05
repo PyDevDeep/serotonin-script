@@ -46,12 +46,7 @@ class DraftRepository:
         self, limit: int = 10, offset: int = 0, platform: str | None = None
     ) -> list[Draft]:
         """Витягує останні драфти (для Дашборду в Slack)"""
-        active_statuses = ("pending", "generating", "generated", "scheduled")
-        stmt = (
-            select(Draft)
-            .where(Draft.status.in_(active_statuses))
-            .order_by(Draft.updated_at.desc())
-        )
+        stmt = select(Draft).order_by(Draft.updated_at.desc())
         if platform:
             stmt = stmt.where(Draft.platform == platform)
         stmt = stmt.limit(limit).offset(offset)

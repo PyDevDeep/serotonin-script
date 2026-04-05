@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     # Slack
     SLACK_BOT_TOKEN: SecretStr = Field(default=SecretStr(""))
     SLACK_SIGNING_SECRET: SecretStr = Field(default=SecretStr(""))
+    # n8n
+    N8N_WEBHOOK_URL: str = "http://127.0.0.1:5678/webhook/publish-post"
     # Конфігурація Pydantic
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

@@ -86,6 +86,7 @@ async def slack_interactions(
         action = payload.get("actions", [])[0]
         action_id = action.get("action_id")
         response_url = payload.get("response_url")
+        logger.info("slack_block_action", action_id=action_id, trigger_id=trigger_id)
         action_value = action.get("value", "temp_id|telegram")
         value_parts = action_value.split("|")
         draft_id = value_parts[0]
@@ -104,11 +105,13 @@ async def slack_interactions(
         if action_id == "action_open_manual_post_modal":
             modal_view = build_manual_post_modal()
             async with httpx.AsyncClient() as client:
-                await client.post(
+                res = await client.post(
                     "https://slack.com/api/views.open",
                     headers=headers,
                     json={"trigger_id": trigger_id, "view": modal_view},
                 )
+                if not res.json().get("ok"):
+                    logger.error("manual_post_modal_open_error", error=res.json())
             return Response(status_code=200)
 
         if action_id == "action_home_drafts_page":
