@@ -200,11 +200,23 @@ async def slack_interactions(
                 )
                 return Response(status_code=200)
 
-            # Логіка парсингу тексту повідомлення
-            blocks = payload.get("message", {}).get("blocks", [])
-            raw_draft = blocks[1]["text"]["text"] if len(blocks) > 1 else ""
-            draft_text = raw_draft.replace("```", "").strip()
+            # Беремо topic і draft_text з БД якщо є draft_id
             topic = "Медичний пост"
+            blocks = payload.get("message", {}).get("blocks", [])
+            raw_draft = ""
+            for block in blocks:
+                text = block.get("text", {}).get("text", "")
+                if "```" in text:
+                    raw_draft = text
+                    break
+            draft_text = raw_draft.replace("```", "").strip()
+
+            if draft_id.isdigit():
+                repo = DraftRepository(session)
+                db_draft = await repo.get_by_id(int(draft_id))
+                if db_draft:
+                    topic = db_draft.topic
+                    draft_text = db_draft.content or draft_text
 
             async with httpx.AsyncClient() as client:
                 if action_id == "action_publish_draft":
