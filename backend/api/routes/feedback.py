@@ -114,17 +114,24 @@ async def slack_interactions(
                     logger.error("manual_post_modal_open_error", error=res.json())
             return Response(status_code=200)
 
-        if action_id == "action_home_drafts_page":
+        if action_id in ("action_home_drafts_prev", "action_home_drafts_next"):
             page_offset = int(action_value) if action_value.isdigit() else 0
             repo = DraftRepository(session)
             drafts = await repo.get_recent_drafts(limit=10, offset=page_offset)
             home_view = build_app_home(drafts=drafts, offset=page_offset)
             async with httpx.AsyncClient() as client:
-                await client.post(
+                res = await client.post(
                     "https://slack.com/api/views.publish",
                     headers=headers,
                     json={"user_id": user_id, "view": home_view},
                 )
+                if not res.json().get("ok"):
+                    logger.error(
+                        "home_pagination_publish_error",
+                        error=res.json(),
+                        user_id=user_id,
+                        page_offset=page_offset,
+                    )
             return Response(status_code=200)
 
         if action_id == "action_open_generation_modal":

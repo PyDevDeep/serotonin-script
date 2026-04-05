@@ -528,7 +528,7 @@ def build_app_home(
                     "emoji": True,
                 },
                 "value": str(offset - page_size),
-                "action_id": "action_home_drafts_page",
+                "action_id": "action_home_drafts_prev",
             }
         )
     if len(drafts) == page_size:
@@ -541,7 +541,7 @@ def build_app_home(
                     "emoji": True,
                 },
                 "value": str(offset + page_size),
-                "action_id": "action_home_drafts_page",
+                "action_id": "action_home_drafts_next",
             }
         )
     if pagination_elements:
