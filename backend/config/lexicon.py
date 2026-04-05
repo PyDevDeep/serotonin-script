@@ -62,7 +62,7 @@ SLACK_UI = {
     # --- Manual Post Modal ---
     "home_btn_manual_post": "✏️ Написати пост",
     "manual_post_modal_title": "Новий пост вручну",
-    "manual_post_modal_submit": "Опублікувати / Запланувати",
+    "manual_post_modal_submit": "Надіслати",
     "manual_post_modal_content_label": "Текст публікації",
     "manual_post_modal_platform_label": "Платформа",
     "manual_post_modal_schedule_label": "📅 Запланувати (UTC, необов'язково)",
