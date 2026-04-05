@@ -22,7 +22,11 @@ async def test_generate_draft_task_success():
 
     # Act: Прямий виклик функції (в обхід брокера) з ін'єкцією мока
     result: str = await generate_draft_task(
-        topic=topic, platform=platform, source_url=source_url, generator=mock_generator, session=AsyncMock()
+        topic=topic,
+        platform=platform,
+        source_url=source_url,
+        generator=mock_generator,
+        session=AsyncMock(),
     )
 
     # Assert: Перевіряємо результат та аргументи виклику
@@ -47,7 +51,11 @@ async def test_generate_draft_task_judge_failure():
     # Act & Assert
     with pytest.raises(JudgeFailedError) as exc_info:
         await generate_draft_task(
-            topic="Стрес", platform="twitter", source_url=None, generator=mock_generator, session=AsyncMock()
+            topic="Стрес",
+            platform="twitter",
+            source_url=None,
+            generator=mock_generator,
+            session=AsyncMock(),
         )
 
     assert exc_info.value.topic == "Стрес"

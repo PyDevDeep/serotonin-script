@@ -427,7 +427,11 @@ async def slack_interactions(
                 "input_platform_select", {}
             )
             selected_option = block_state.get("selected_option")
-            platform_raw = selected_option.get("value", "telegram") if selected_option else "telegram"
+            platform_raw = (
+                selected_option.get("value", "telegram")
+                if selected_option
+                else "telegram"
+            )
             platform = Platform(platform_raw)
 
             schedule_timestamp = (
@@ -442,7 +446,9 @@ async def slack_interactions(
             )
 
             # Знаходимо або створюємо користувача
-            user_query = await session.execute(select(User).where(User.username == user_id))
+            user_query = await session.execute(
+                select(User).where(User.username == user_id)
+            )
             db_user = user_query.scalar_one_or_none()
             if not db_user:
                 db_user = User(username=user_id)
@@ -453,7 +459,9 @@ async def slack_interactions(
 
             if scheduled_at:
                 new_draft = await repo.create(
-                    DraftCreate(topic=content[:80], platform=platform, user_id=db_user.id)
+                    DraftCreate(
+                        topic=content[:80], platform=platform, user_id=db_user.id
+                    )
                 )
                 await repo.update(
                     new_draft.id,
@@ -471,7 +479,9 @@ async def slack_interactions(
                 )
             else:
                 new_draft = await repo.create(
-                    DraftCreate(topic=content[:80], platform=platform, user_id=db_user.id)
+                    DraftCreate(
+                        topic=content[:80], platform=platform, user_id=db_user.id
+                    )
                 )
                 await repo.update(
                     new_draft.id,
@@ -502,17 +512,23 @@ async def slack_interactions(
 
             if not schedule_timestamp or not draft_id.isdigit():
                 return Response(
-                    content=json.dumps({
-                        "response_action": "errors",
-                        "errors": {
-                            "block_schedule_time": SLACK_UI["schedule_no_time_error"]
-                        },
-                    }),
+                    content=json.dumps(
+                        {
+                            "response_action": "errors",
+                            "errors": {
+                                "block_schedule_time": SLACK_UI[
+                                    "schedule_no_time_error"
+                                ]
+                            },
+                        }
+                    ),
                     media_type="application/json",
                     status_code=200,
                 )
 
-            scheduled_at = datetime.fromtimestamp(int(schedule_timestamp), tz=timezone.utc)
+            scheduled_at = datetime.fromtimestamp(
+                int(schedule_timestamp), tz=timezone.utc
+            )
             repo = DraftRepository(session)
             await repo.update(
                 int(draft_id),
@@ -582,7 +598,9 @@ async def slack_events(
         repo = DraftRepository(session)
         recent_drafts = await repo.get_recent_drafts(limit=10)
 
-        logger.info("slack_home_opened", user_id=user_id, drafts_count=len(recent_drafts))
+        logger.info(
+            "slack_home_opened", user_id=user_id, drafts_count=len(recent_drafts)
+        )
 
         # 2. Рендеримо дашборд
         slack_token = (

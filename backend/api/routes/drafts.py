@@ -30,7 +30,9 @@ async def create_draft(
     2. Відправляє фонову задачу генерації в Taskiq.
     3. Повертає task_id клієнту.
     """
-    draft_in = DraftCreate(topic=request.topic, user_id=request.user_id, platform=request.platform)
+    draft_in = DraftCreate(
+        topic=request.topic, user_id=request.user_id, platform=request.platform
+    )
     await draft_repo.create(draft_in)
 
     # Викликаємо фонову задачу

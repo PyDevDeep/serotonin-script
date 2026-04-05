@@ -20,7 +20,9 @@ async def publish_post_task(
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(settings.N8N_WEBHOOK_URL, json=payload, timeout=10.0)
+            response = await client.post(
+                settings.N8N_WEBHOOK_URL, json=payload, timeout=10.0
+            )
             response.raise_for_status()
 
         logger.info("publish_task_success", post_id=post_id, platform=platform)

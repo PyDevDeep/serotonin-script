@@ -207,7 +207,9 @@ def build_approval_modal(
     }
 
 
-def build_schedule_modal(draft_id: str, platform: str, scheduled_at: int | None = None) -> dict[str, Any]:
+def build_schedule_modal(
+    draft_id: str, platform: str, scheduled_at: int | None = None
+) -> dict[str, Any]:
     """Генерує мінімальну модалку для вибору часу планування публікації."""
     element: dict[str, Any] = {
         "type": "datetimepicker",
@@ -220,9 +222,21 @@ def build_schedule_modal(draft_id: str, platform: str, scheduled_at: int | None 
         "type": "modal",
         "callback_id": "modal_schedule_draft",
         "private_metadata": f"{draft_id}|{platform}",
-        "title": {"type": "plain_text", "text": SLACK_UI["schedule_modal_title"], "emoji": True},
-        "submit": {"type": "plain_text", "text": SLACK_UI["schedule_modal_submit"], "emoji": True},
-        "close": {"type": "plain_text", "text": SLACK_UI["modal_cancel"], "emoji": True},
+        "title": {
+            "type": "plain_text",
+            "text": SLACK_UI["schedule_modal_title"],
+            "emoji": True,
+        },
+        "submit": {
+            "type": "plain_text",
+            "text": SLACK_UI["schedule_modal_submit"],
+            "emoji": True,
+        },
+        "close": {
+            "type": "plain_text",
+            "text": SLACK_UI["modal_cancel"],
+            "emoji": True,
+        },
         "blocks": [
             {
                 "type": "input",
@@ -318,9 +332,21 @@ def build_manual_post_modal() -> dict[str, Any]:
     return {
         "type": "modal",
         "callback_id": "modal_manual_post",
-        "title": {"type": "plain_text", "text": SLACK_UI["manual_post_modal_title"], "emoji": True},
-        "submit": {"type": "plain_text", "text": SLACK_UI["manual_post_modal_submit"], "emoji": True},
-        "close": {"type": "plain_text", "text": SLACK_UI["modal_cancel"], "emoji": True},
+        "title": {
+            "type": "plain_text",
+            "text": SLACK_UI["manual_post_modal_title"],
+            "emoji": True,
+        },
+        "submit": {
+            "type": "plain_text",
+            "text": SLACK_UI["manual_post_modal_submit"],
+            "emoji": True,
+        },
+        "close": {
+            "type": "plain_text",
+            "text": SLACK_UI["modal_cancel"],
+            "emoji": True,
+        },
         "blocks": [
             {
                 "type": "input",
@@ -351,9 +377,18 @@ def build_manual_post_modal() -> dict[str, Any]:
                         "value": "telegram",
                     },
                     "options": [
-                        {"text": {"type": "plain_text", "text": "Telegram"}, "value": "telegram"},
-                        {"text": {"type": "plain_text", "text": "Twitter"}, "value": "twitter"},
-                        {"text": {"type": "plain_text", "text": "Threads"}, "value": "threads"},
+                        {
+                            "text": {"type": "plain_text", "text": "Telegram"},
+                            "value": "telegram",
+                        },
+                        {
+                            "text": {"type": "plain_text", "text": "Twitter"},
+                            "value": "twitter",
+                        },
+                        {
+                            "text": {"type": "plain_text", "text": "Threads"},
+                            "value": "threads",
+                        },
                     ],
                 },
                 "label": {
@@ -380,7 +415,9 @@ def build_manual_post_modal() -> dict[str, Any]:
     }
 
 
-def build_app_home(drafts: list[Draft] | None = None, offset: int = 0, page_size: int = 10) -> dict[str, Any]:
+def build_app_home(
+    drafts: list[Draft] | None = None, offset: int = 0, page_size: int = 10
+) -> dict[str, Any]:
     if drafts is None:
         drafts = []
 
@@ -434,7 +471,11 @@ def build_app_home(drafts: list[Draft] | None = None, offset: int = 0, page_size
         {"type": "divider"},
         {
             "type": "header",
-            "text": {"type": "plain_text", "text": SLACK_UI["home_drafts_header"], "emoji": True},
+            "text": {
+                "type": "plain_text",
+                "text": SLACK_UI["home_drafts_header"],
+                "emoji": True,
+            },
         },
     ]
 
@@ -447,7 +488,9 @@ def build_app_home(drafts: list[Draft] | None = None, offset: int = 0, page_size
         )
     else:
         for d in drafts:
-            status_emoji = SLACK_UI.get(f"status_emoji_{d.status}", SLACK_UI["status_emoji_pending"])
+            status_emoji = SLACK_UI.get(
+                f"status_emoji_{d.status}", SLACK_UI["status_emoji_pending"]
+            )
 
             blocks.append(
                 {
@@ -479,7 +522,11 @@ def build_app_home(drafts: list[Draft] | None = None, offset: int = 0, page_size
         pagination_elements.append(
             {
                 "type": "button",
-                "text": {"type": "plain_text", "text": SLACK_UI["home_btn_prev_page"], "emoji": True},
+                "text": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["home_btn_prev_page"],
+                    "emoji": True,
+                },
                 "value": str(offset - page_size),
                 "action_id": "action_home_drafts_page",
             }
@@ -488,7 +535,11 @@ def build_app_home(drafts: list[Draft] | None = None, offset: int = 0, page_size
         pagination_elements.append(
             {
                 "type": "button",
-                "text": {"type": "plain_text", "text": SLACK_UI["home_btn_next_page"], "emoji": True},
+                "text": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["home_btn_next_page"],
+                    "emoji": True,
+                },
                 "value": str(offset + page_size),
                 "action_id": "action_home_drafts_page",
             }
