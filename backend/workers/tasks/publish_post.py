@@ -1,8 +1,11 @@
-import httpx
-import structlog
+from typing import Annotated
 
-from backend.config.settings import settings
+import structlog
+from taskiq import TaskiqDepends
+
+from backend.services.publisher_service import PublisherService
 from backend.workers.broker import broker
+from backend.workers.dependencies import get_publisher_service
 
 logger = structlog.get_logger()
 
@@ -12,27 +15,12 @@ async def publish_post_task(
     post_id: str,
     platform: str,
     content: str,
+    publisher_service: Annotated[
+        PublisherService, TaskiqDepends(get_publisher_service)
+    ],
 ) -> dict[str, str]:
-    """Фонова задача для відправки контенту в n8n оркестратор."""
+    """Trigger publishing via PublisherService. All routing logic lives in the service."""
     logger.info("publish_task_started", post_id=post_id, platform=platform)
-
-    payload = {"post_id": post_id, "platform": platform, "content": content}
-
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                settings.N8N_WEBHOOK_URL, json=payload, timeout=10.0
-            )
-            response.raise_for_status()
-
-        logger.info("publish_task_success", post_id=post_id, platform=platform)
-        return {"status": "success", "post_id": post_id, "platform": platform}
-
-    except Exception as e:
-        logger.error(
-            "publish_task_failed",
-            post_id=post_id,
-            error=str(e),
-            error_type=type(e).__name__,
-        )
-        raise
+    await publisher_service.publish(post_id=post_id, platform=platform, content=content)
+    logger.info("publish_task_success", post_id=post_id, platform=platform)
+    return {"status": "success", "post_id": post_id, "platform": platform}
