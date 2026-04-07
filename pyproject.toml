@@ -30,6 +30,8 @@ llama-index-llms-openai = "^0.7.5"
 httpx = "^0.28.1"
 llama-index-readers-web = "^0.6.0"
 python-multipart = "^0.0.22"
+prometheus-fastapi-instrumentator = "^7.1.0"
+prometheus-client = "^0.24.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.0"
