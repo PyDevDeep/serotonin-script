@@ -23,8 +23,4 @@ docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml run --rm b
 echo "🔌 Starting all services..."
 docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d --scale backend=2
 
-# 6. Запуск моніторингу
-echo "📊 Starting monitoring stack..."
-docker compose -f infra/monitoring/docker-compose.monitoring.yml up -d
-
 echo "✅ Deployment complete!"

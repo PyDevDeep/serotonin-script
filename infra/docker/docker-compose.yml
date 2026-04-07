@@ -47,6 +47,14 @@ services:
 
 volumes:
   postgres_data:
+    external: true
+    name: docker_postgres_data
   redis_data:
+    external: true
+    name: docker_redis_data
   qdrant_data:
+    external: true
+    name: docker_qdrant_data
   n8n_data:
+    external: true
+    name: docker_n8n_data
