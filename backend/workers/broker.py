@@ -33,7 +33,10 @@ broker.add_middlewares(
 @broker.on_event(TaskiqEvents.WORKER_STARTUP)
 async def start_metrics_server(_state: Any) -> None:
     if settings.START_METRICS:
-        start_http_server(settings.METRICS_PORT)
+        try:
+            start_http_server(settings.METRICS_PORT)
+        except OSError:
+            pass  # Port already bound (e.g. container restart with --workers > 1)
 
 
 # Initialise the scheduler with label and Redis sources
