@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     QDRANT_HOST: str = "qdrant"
     QDRANT_PORT: int = 6333
     EXTERNAL_QDRANT_PORT: int = 6333
+
+    @property
+    def QDRANT_URL(self) -> str:
+        return f"http://{self.QDRANT_HOST}:{self.QDRANT_PORT}"
+
     # Slack
     SLACK_BOT_TOKEN: SecretStr = Field(default=SecretStr(""))
     SLACK_SIGNING_SECRET: SecretStr = Field(default=SecretStr(""))

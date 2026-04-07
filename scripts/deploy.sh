@@ -20,6 +20,6 @@ docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml run --rm b
 
 # 5. Повний запуск системи з масштабуванням
 echo "🔌 Starting all services..."
-docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d --scale backend=2
+docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d
 
 echo "✅ Deployment complete!"
