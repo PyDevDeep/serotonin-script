@@ -10,8 +10,11 @@ from backend.rag.indexing.embedder import get_embedder
 
 
 class StyleRetriever:
+    """Retrieves doctor-style text samples from the Qdrant vector store."""
+
     def __init__(self) -> None:
-        # Підключення до прокинутого порту для локальної розробки (uvicorn)
+        """Initialise the Qdrant client, vector store, index, and retriever."""
+        # Connect to the exposed port for local development (uvicorn)
         self.client = AsyncQdrantClient(
             host="127.0.0.1", port=settings.EXTERNAL_QDRANT_PORT
         )
@@ -21,7 +24,7 @@ class StyleRetriever:
         self.index = VectorStoreIndex.from_vector_store(  # type: ignore[reportUnknownMemberType]
             vector_store=self.vector_store, embed_model=get_embedder()
         )
-        # Згідно з Acceptance Criteria: повертає топ-5 релевантних текстів
+        # Returns top-5 relevant texts per Acceptance Criteria
         self.retriever = self.index.as_retriever(similarity_top_k=5)
 
     async def retrieve(self, query: str) -> list[NodeWithScore]:

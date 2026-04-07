@@ -21,7 +21,7 @@ from backend.workers.callbacks import (
 
 logger = structlog.get_logger()
 
-# Налаштування OpenAI Embedding
+# Configure the OpenAI embedding model
 _raw_key = settings.OPENAI_API_KEY
 openai_key: str = (
     _raw_key.get_secret_value()
@@ -36,11 +36,12 @@ Settings.embed_model = OpenAIEmbedding(
 @broker.task(task_name="ingest_guideline_task", timeout=300)
 async def ingest_guideline_task(
     file_url: str, file_name: str, user_id: str | None = None
-) -> None:  # Додано user_id
+) -> None:
+    """Download a file from Slack, vectorize it, and store it in Qdrant."""
     logger.info("ingest_guideline_started", file_name=file_name)
 
     try:
-        # 1. Завантаження файлу зі Slack
+        # 1. Download the file from Slack
         save_dir = Path("knowledge_base/medical_guidelines")
         save_dir.mkdir(parents=True, exist_ok=True)
         file_path = save_dir / file_name
@@ -61,11 +62,10 @@ async def ingest_guideline_task(
 
         logger.info("file_downloaded_successfully", path=str(file_path))
 
-        # 2. Векторизація через LlamaIndex
-        # Використовуємо SimpleDirectoryReader для конкретного файлу
+        # 2. Vectorize with LlamaIndex using SimpleDirectoryReader for the specific file
         documents = SimpleDirectoryReader(input_files=[str(file_path)]).load_data()
 
-        # Підключаємось до Qdrant (колекція medical_knowledge)
+        # Connect to Qdrant (medical_knowledge collection)
         qdrant_url = getattr(settings, "QDRANT_URL", "http://127.0.0.1:6333")
         aclient = AsyncQdrantClient(url=qdrant_url)
         vector_store = QdrantVectorStore(
@@ -73,7 +73,7 @@ async def ingest_guideline_task(
         )
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
-        # Створюємо індекс і вставляємо документи
+        # Build the index and insert documents
         index = VectorStoreIndex.from_vector_store(  # type: ignore[reportUnknownMemberType]
             vector_store=vector_store, storage_context=storage_context
         )
@@ -85,18 +85,14 @@ async def ingest_guideline_task(
             "guideline_ingestion_success", file_name=file_name, chunks=len(documents)
         )
 
-        logger.info(
-            "guideline_ingestion_success", file_name=file_name, chunks=len(documents)
-        )
-
-        # ДОДАНО: Сповіщення про успіх
+        # Notify on success
         if user_id:
             await notify_slack_upload_success(user_id=user_id, file_name=file_name)
 
     except Exception as e:
         logger.error("guideline_ingestion_failed", file_name=file_name, error=str(e))
 
-        # ДОДАНО: Сповіщення про помилку
+        # Notify on failure
         if user_id:
             await notify_slack_upload_failure(
                 user_id=user_id, file_name=file_name, error_msg=str(e)

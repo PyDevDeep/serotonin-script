@@ -11,7 +11,7 @@ from backend.services.style_matcher import StyleMatcher
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Генерує асинхронну сесію БД для FastAPI та Taskiq."""
+    """Yield an async database session for FastAPI and Taskiq dependencies."""
     async with async_session_maker() as session:
         try:
             yield session
@@ -24,32 +24,24 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 
 
 def get_llm_router() -> LLMRouter:
-    """Ініціалізує та повертає роутер моделей."""
+    """Initialise and return the LLM router."""
     return LLMRouter()
 
 
 def get_style_matcher() -> StyleMatcher:
-    """Ініціалізує сервіс пошуку стилю."""
+    """Initialise and return the style matcher service."""
     return StyleMatcher()
 
 
 def get_fact_checker(
     llm_router: Annotated[LLMRouter, TaskiqDepends(get_llm_router)],
 ) -> FactChecker:
-    """Ініціалізує сервіс перевірки фактів, ін'єктуючи роутер."""
+    """Initialise the fact-checker service with the injected LLM router."""
     return FactChecker(llm_router=llm_router)
 
 
 def get_content_generator(
     llm_router: Annotated[LLMRouter, TaskiqDepends(get_llm_router)],
 ) -> ContentGenerator:
-    """
-    Фабрика для генератора контенту.
-    Використовує спільний інстанс роутера для оптимізації ресурсів.
-    """
+    """Initialise the content generator, sharing the LLM router instance to save resources."""
     return ContentGenerator(llm_router=llm_router)
-
-
-# Заглушка для Milestone 7.4 (Publisher Service)
-# def get_publisher_service() -> PublisherService:
-#     return PublisherService()

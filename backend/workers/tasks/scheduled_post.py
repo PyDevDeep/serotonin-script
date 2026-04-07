@@ -22,7 +22,7 @@ async def check_scheduled_posts_task(
     """
     repo = DraftRepository(session)
 
-    # Витягуємо всі пости, де status == 'scheduled' і scheduled_at <= now
+    # Fetch all posts where status == 'scheduled' and scheduled_at <= now
     due_drafts = await repo.get_due_scheduled_drafts()
 
     if not due_drafts:
@@ -32,14 +32,14 @@ async def check_scheduled_posts_task(
 
     for draft in due_drafts:
         try:
-            # 1. Відправляємо в чергу на публікацію
+            # 1. Enqueue for publication
             await publish_post_task.kiq(  # type: ignore[call-overload]
                 post_id=str(draft.id),
                 platform=draft.platform,
                 content=draft.content or "",
             )
 
-            # Оновлення статусу в БД
+            # Update status in DB
             await repo.update(draft.id, DraftUpdate(status=DraftStatus.PUBLISHED))
             logger.info(
                 "scheduled_draft_sent_to_publish",

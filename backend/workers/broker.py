@@ -11,7 +11,7 @@ from backend.workers.middlewares.retry import RetryTrackerMiddleware
 
 redis_url = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/0"
 
-# Ініціалізуємо брокер з явно вказаною чергою
+# Initialise the broker with an explicit queue name
 broker = ListQueueBroker(redis_url, queue_name="seratonin_tasks")
 
 result_backend: RedisAsyncResultBackend[Any] = RedisAsyncResultBackend(
@@ -25,7 +25,7 @@ broker.add_middlewares(
     PrometheusMetricsMiddleware(),
 )
 
-# --- НОВЕ: Ініціалізація планувальника ---
+# Initialise the scheduler with label and Redis sources
 redis_source = RedisScheduleSource(redis_url)
 scheduler = TaskiqScheduler(
     broker=broker,

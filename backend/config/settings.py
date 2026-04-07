@@ -3,6 +3,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Application settings loaded from environment variables and .env file."""
+
     PROJECT_NAME: str = "Seratonin Script"
     VERSION: str = "0.1.0"
     DESCRIPTION: str = "AI Medical Content Generator"
@@ -51,7 +53,7 @@ class Settings(BaseSettings):
     SLACK_SIGNING_SECRET: SecretStr = Field(default=SecretStr(""))
     # n8n
     N8N_WEBHOOK_URL: str = "http://127.0.0.1:5678/webhook/publish-post"
-    # Конфігурація Pydantic
+    # Pydantic configuration
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

@@ -15,7 +15,7 @@ from backend.workers.dependencies import get_content_generator, get_db_session
 logger = structlog.get_logger()
 
 
-# Збільшено timeout до 180 секунд через наявність циклу LLM-as-a-Judge та Retries
+# Timeout raised to 180 s to accommodate the LLM-as-a-Judge loop and retries
 @broker.task(task_name="generate_medical_draft", timeout=180)
 async def generate_draft_task(
     topic: str,
@@ -27,9 +27,7 @@ async def generate_draft_task(
     channel_id: str | None = None,
     draft_id: str = "temp_id",
 ) -> str:
-    """
-    Фонова задача для генерації медичного контенту.
-    """
+    """Background task that generates medical content and notifies Slack on completion."""
     logger.info(
         "background_task_started",
         task="generate_medical_draft",
@@ -47,13 +45,13 @@ async def generate_draft_task(
         logger.info(
             "background_task_success", task="generate_medical_draft", topic=topic
         )
-        # --- ДОДАНО: ЗБЕРЕЖЕННЯ ТЕКСТУ ТА СТАТУСУ В БД ---
+        # Save generated content and status to DB
         if draft_id.isdigit():
             repo = DraftRepository(session)
             await repo.update(
                 int(draft_id), DraftUpdate(content=result, status=DraftStatus.GENERATED)
             )
-        # ДОДАНО: Відправка готового результату у Slack
+        # Send completion notification to Slack
         if user_id and channel_id:
             await notify_slack_on_complete(
                 user_id=user_id,
@@ -73,15 +71,14 @@ async def generate_draft_task(
             topic=e.topic,
             attempts=e.attempts,
         )
-        # --- ДОДАНО: ЗБЕРЕЖЕННЯ "БРУДНОГО" ТЕКСТУ ---
+        # Save the rejected draft text to DB
         if draft_id.isdigit():
             repo = DraftRepository(session)
             await repo.update(
                 int(draft_id), DraftUpdate(content=e.draft, status=DraftStatus.FAILED)
             )
 
-        # ---------------------------------------------
-        # ВІДДАЄМО ДРАФТ З КНОПКАМИ, АЛЕ З АЛЕРТОМ (is_valid=False)
+        # Send the draft to Slack with an invalid flag (shows warning)
         if user_id and channel_id:
             await notify_slack_on_complete(
                 user_id=user_id,
@@ -102,7 +99,7 @@ async def generate_draft_task(
             error=str(e),
             error_type=type(e).__name__,
         )
-        # ДОДАНО: Відправка критичної помилки у Slack
+        # Send critical failure notification to Slack
         if user_id and channel_id:
             await notify_slack_on_failure(
                 user_id=user_id, channel_id=channel_id, error_msg=str(e), topic=topic

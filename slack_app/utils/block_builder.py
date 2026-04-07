@@ -68,7 +68,7 @@ def build_draft_card(
         }
     )
 
-    # Блок з кнопками залишається без змін, він просто додається в кінець
+    # Action buttons block appended at the end
     blocks.append(
         {
             "type": "actions",
@@ -135,7 +135,7 @@ def build_draft_card(
 def build_approval_modal(
     topic: str,
     draft: str,
-    platform: str = "telegram",
+    platform: str = "threads",
     draft_id: str = "unknown",
     channel_id: str = "",
     message_ts: str = "",
@@ -144,7 +144,7 @@ def build_approval_modal(
     return {
         "type": "modal",
         "callback_id": "modal_edit_draft",
-        "private_metadata": f"{topic}|{draft_id}|{channel_id}|{message_ts}",  # ПРОШИВАЄМО 4 ПАРАМЕТРИ
+        "private_metadata": f"{topic}|{draft_id}|{channel_id}|{message_ts}",
         "title": {"type": "plain_text", "text": SLACK_UI["modal_title"], "emoji": True},
         "submit": {
             "type": "plain_text",
@@ -357,7 +357,7 @@ def build_manual_post_modal() -> dict[str, Any]:
                     "multiline": True,
                     "placeholder": {
                         "type": "plain_text",
-                        "text": "Введіть текст вашої публікації...",
+                        "text": "Enter your post text...",
                     },
                 },
                 "label": {
@@ -418,6 +418,7 @@ def build_manual_post_modal() -> dict[str, Any]:
 def build_app_home(
     drafts: list[Draft] | None = None, offset: int = 0, page_size: int = 10
 ) -> dict[str, Any]:
+    """Build the App Home view with a dashboard of recent drafts and pagination controls."""
     if drafts is None:
         drafts = []
 

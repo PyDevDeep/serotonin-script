@@ -10,11 +10,13 @@ logger = structlog.get_logger()
 
 
 class PubMedClient:
+    """Async client for the NCBI PubMed E-utilities API."""
+
     def __init__(self) -> None:
         self.client = httpx.AsyncClient(timeout=10.0)
         self.settings = settings
         self.base_url = settings.PUBMED_API_URL
-        # Отримуємо ключ, якщо він є
+        # Read the API key if configured
         self.api_key = (
             settings.PUBMED_API_KEY.get_secret_value()
             if settings.PUBMED_API_KEY
@@ -24,10 +26,10 @@ class PubMedClient:
     async def _make_request(
         self, endpoint: str, params: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Універсальний метод для запитів з обробкою помилок та ключем."""
+        """Make an authenticated GET request to a PubMed endpoint with error handling."""
         url = f"{self.base_url}/{endpoint}"
 
-        # Додаємо API ключ до параметрів, якщо він налаштований
+        # Append API key to params if configured
         if self.api_key:
             params["api_key"] = self.api_key
 
@@ -56,9 +58,10 @@ class PubMedClient:
     async def search_articles(
         self, query: str, max_results: int = 3
     ) -> List[Dict[str, Any]]:
+        """Search PubMed for articles matching the query and return summary metadata."""
         logger.info("pubmed_search_started", query=query)
 
-        # 1. Пошук ID
+        # 1. Search for article IDs
         search_params = {
             "db": "pubmed",
             "term": query,
@@ -71,7 +74,7 @@ class PubMedClient:
         if not id_list:
             return []
 
-        # 2. Отримання деталей
+        # 2. Fetch article details
         summary_params = {"db": "pubmed", "id": ",".join(id_list), "retmode": "json"}
         summary_data = await self._make_request("esummary.fcgi", summary_params)
 
@@ -95,7 +98,7 @@ class PubMedClient:
         return results
 
     async def fetch_abstracts(self, uid_list: list[str]) -> list[PubMedArticle]:
-        """Отримує повні абстракти для списку PubMed ID через efetch."""
+        """Fetch full abstracts for a list of PubMed IDs via efetch."""
         if not uid_list:
             return []
 
@@ -121,7 +124,7 @@ class PubMedClient:
     def _parse_abstracts_xml(
         self, xml_text: str, uid_list: list[str]
     ) -> list[PubMedArticle]:
-        """Парсить XML відповідь efetch — витягує AbstractText по кожному PMID."""
+        """Parse the efetch XML response and extract AbstractText for each PMID."""
         import xml.etree.ElementTree as ET
 
         results: list[PubMedArticle] = []
@@ -160,9 +163,7 @@ class PubMedClient:
     async def search_and_fetch(
         self, query: str, max_results: int = 3
     ) -> list[PubMedArticle]:
-        """Пошук + отримання абстрактів в одному виклику.
-        Фільтрує за клінічними типами публікацій — виключає базові дослідження.
-        """
+        """Search PubMed and fetch abstracts in one call, filtering by clinical publication types."""
         logger.info("pubmed_search_and_fetch", query=query)
 
         search_params = {
@@ -178,7 +179,7 @@ class PubMedClient:
             logger.warning(
                 "pubmed_no_clinical_results_retry_without_filter", query=query
             )
-            # Fallback: якщо з фільтром нічого — пробуємо без фільтра
+            # Fallback: retry without the clinical filter
             search_params["term"] = query
             search_data = await self._make_request("esearch.fcgi", search_params)
             uid_list = search_data.get("esearchresult", {}).get("idlist", [])
@@ -190,4 +191,5 @@ class PubMedClient:
         return await self.fetch_abstracts(uid_list)
 
     async def close(self) -> None:
+        """Close the underlying HTTP client."""
         await self.client.aclose()

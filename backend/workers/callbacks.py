@@ -13,6 +13,7 @@ SLACK_API_URL = "https://slack.com/api/chat.postMessage"
 
 
 async def _send_slack_message(payload: dict[str, Any]) -> None:
+    """Send a Slack message using the bot token and the provided payload."""
     token = (
         settings.SLACK_BOT_TOKEN.get_secret_value()
         if settings.SLACK_BOT_TOKEN
@@ -51,6 +52,7 @@ async def notify_slack_on_complete(
     platform: str,
     is_valid: bool = True,
 ) -> None:
+    """Notify the Slack channel that draft generation completed, with a draft card."""
     logger.info(
         "sending_slack_completion_notification", user_id=user_id, channel_id=channel_id
     )
@@ -73,6 +75,7 @@ async def notify_slack_on_complete(
 async def notify_slack_on_failure(
     user_id: str, channel_id: str, error_msg: str, topic: str
 ) -> None:
+    """Notify the Slack channel that draft generation failed with an error message."""
     logger.info(
         "sending_slack_failure_notification", user_id=user_id, channel_id=channel_id
     )

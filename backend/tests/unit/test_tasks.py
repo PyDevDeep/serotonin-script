@@ -12,7 +12,7 @@ async def test_generate_draft_task_success():
     Тестує успішне виконання фонової задачі генерації.
     Перевіряє, чи правильно викликається внутрішній сервіс (ContentGenerator).
     """
-    # Arrange: Створюємо мок для ContentGenerator
+    # Arrange: create a mock for ContentGenerator
     mock_generator = AsyncMock()
     mock_generator.generate_draft.return_value = "Згенерований медичний текст"
 
@@ -20,7 +20,7 @@ async def test_generate_draft_task_success():
     platform = "telegram"
     source_url = "https://pubmed.org/123"
 
-    # Act: Прямий виклик функції (в обхід брокера) з ін'єкцією мока
+    # Act: call the function directly (bypassing the broker) with the injected mock
     result: str = await generate_draft_task(
         topic=topic,
         platform=platform,
@@ -29,7 +29,7 @@ async def test_generate_draft_task_success():
         session=AsyncMock(),
     )
 
-    # Assert: Перевіряємо результат та аргументи виклику
+    # Assert: verify the result and call arguments
     assert result == "Згенерований медичний текст"
     mock_generator.generate_draft.assert_called_once_with(
         topic=topic, platform=platform, source_url=source_url

@@ -17,11 +17,15 @@ logger = structlog.get_logger()
 RELEVANCE_THRESHOLD = 0.7
 KEYWORD_OVERLAP_THRESHOLD = 0.15
 PUBMED_KEYWORD_OVERLAP_THRESHOLD = 0.5
-LOW_RELEVANCE_SIGNAL = "[КОНТЕКСТ ОБМЕЖЕНИЙ]: Знайдені матеріали частково стосуються теми. Використовуй лише загальні рекомендації без клінічних тверджень про конкретні препарати."
-NO_CONTEXT_SIGNAL = "[КОНТЕКСТ ВІДСУТНІЙ]: Матеріали по темі не знайдені. Не генеруй клінічних тверджень."
+LOW_RELEVANCE_SIGNAL = "[LIMITED CONTEXT]: Found materials are only partially relevant. Use only general recommendations without clinical claims about specific drugs."
+NO_CONTEXT_SIGNAL = (
+    "[NO CONTEXT]: No materials found for this topic. Do not generate clinical claims."
+)
 
 
 class FactChecker:
+    """Gathers and filters medical context from Qdrant, PubMed, and web sources."""
+
     def __init__(self, llm_router: LLMRouter | None = None) -> None:
         self.retriever = HybridRetrieverPipeline(
             collection_name="medical_knowledge", top_k=2
@@ -31,11 +35,12 @@ class FactChecker:
         self.llm_router = llm_router or LLMRouter()
 
     def _build_queries(self, topic: str) -> list[str]:
-        """Для Qdrant — повертає тему як є."""
+        """Return the topic as-is for use as a Qdrant query."""
         return [topic]
 
     def _build_pubmed_queries(self, topic: str) -> list[str]:
-        clean = re.split(r"[?—]", topic)[0].strip()  # ← тільки один раз на початку
+        """Build a cleaned PubMed-friendly query string from the topic."""
+        clean = re.split(r"[?—]", topic)[0].strip()  # take only the first segment
 
         stop_phrases = [
             r"найстрашніший",
@@ -50,11 +55,12 @@ class FactChecker:
 
         clean = re.sub(
             r"[\s\-:,]+$", "", clean
-        ).strip()  # ← прибираємо хвостові символи після очищення
+        ).strip()  # strip trailing punctuation after cleanup
 
         return [clean] if clean else [topic]
 
     def _deduplicate(self, nodes: list[NodeWithScore]) -> list[NodeWithScore]:
+        """Return nodes with duplicate node IDs removed."""
         seen: set[str] = set()
         result: list[NodeWithScore] = []
         for node in nodes:
@@ -65,7 +71,7 @@ class FactChecker:
         return result
 
     def _extract_keywords(self, text: str) -> set[str]:
-        """Витягує значущі слова з тексту — фільтрує стоп-слова."""
+        """Extract meaningful words from text, filtering out stop words."""
         stop_words = {
             "це",
             "що",
@@ -119,13 +125,10 @@ class FactChecker:
         return {w for w in words if w not in stop_words}
 
     def _has_keyword_overlap(self, topic: str, content: str) -> bool:
-        """
-        Перевіряє чи є достатній тематичний overlap між темою і текстом chunk.
-        Повертає False якщо chunk семантично близький але тематично нерелевантний.
-        """
+        """Return True if the keyword overlap between topic and chunk text meets the threshold."""
         topic_keywords = self._extract_keywords(topic)
         if not topic_keywords:
-            return True  # якщо не можемо перевірити — пропускаємо
+            return True  # cannot verify — allow through
 
         content_keywords = self._extract_keywords(content)
         overlap = topic_keywords & content_keywords
@@ -140,6 +143,7 @@ class FactChecker:
         return overlap_ratio >= KEYWORD_OVERLAP_THRESHOLD
 
     async def _fetch_from_qdrant(self, topic: str) -> list[NodeWithScore]:
+        """Retrieve deduplicated nodes from Qdrant for all topic queries."""
         queries = self._build_queries(topic)
         logger.info("medical_queries_built", queries=queries)
 
@@ -164,7 +168,7 @@ class FactChecker:
         return unique
 
     async def _translate_queries(self, queries: list[str]) -> list[str]:
-        """Перекладає українські підзапити на англійську для PubMed через LLMRouter."""
+        """Translate Ukrainian sub-queries to English for PubMed via the LLMRouter."""
         import json
 
         prompt = PUBMED_TRANSLATION_PROMPT.format(queries=queries)
@@ -192,13 +196,10 @@ class FactChecker:
             return queries
 
     def _has_keyword_overlap_en(self, translated_query: str, content: str) -> bool:
-        """
-        Перевіряє overlap між англійським запитом і англійським абстрактом.
-        Використовується для PubMed де і запит і контент англійською.
-        """
+        """Return True if keyword overlap between an English query and an English abstract meets the threshold."""
         query_keywords = self._extract_keywords(translated_query)
         if not query_keywords:
-            return True
+            return True  # cannot verify — allow through
 
         content_keywords = self._extract_keywords(content)
         overlap = query_keywords & content_keywords
@@ -213,6 +214,7 @@ class FactChecker:
         return overlap_ratio >= PUBMED_KEYWORD_OVERLAP_THRESHOLD
 
     async def _fetch_from_pubmed(self, topic: str) -> str | None:
+        """Search PubMed and return a formatted context string, or None if nothing relevant found."""
         queries = self._build_pubmed_queries(topic)
         en_queries = await self._translate_queries(queries)
         logger.info("pubmed_fallback_started", queries=en_queries)
@@ -222,7 +224,7 @@ class FactChecker:
             return_exceptions=True,
         )
 
-        # Збираємо статті разом з відповідним en_query
+        # Collect articles paired with their corresponding en_query
         articles_with_query: list[tuple[PubMedArticle, str]] = []
         for i, result in enumerate(results):
             if isinstance(result, BaseException):
@@ -231,7 +233,7 @@ class FactChecker:
             for article in result:
                 articles_with_query.append((article, en_queries[i]))
 
-        # Дедуплікація за uid
+        # Deduplicate by uid
         seen: set[str] = set()
         unique: list[tuple[PubMedArticle, str]] = []
         for article, query in articles_with_query:
@@ -245,7 +247,7 @@ class FactChecker:
         context_parts: list[str] = []
         for article, en_query in unique:
             combined = f"{article['title']} {article['abstract']}"
-            # Перевіряємо overlap між англійським запитом і англійським абстрактом
+            # Check overlap between the English query and the English abstract
             if not self._has_keyword_overlap_en(en_query, combined):
                 logger.warning(
                     "pubmed_article_rejected_low_keyword_overlap",
@@ -265,15 +267,16 @@ class FactChecker:
         return "\n\n".join(context_parts)
 
     async def _fetch_from_web(self, url: str) -> str | None:
-        """Делегує scraping у WebScraper — заміна реалізації не торкається цього класу."""
+        """Delegate scraping to WebScraper so implementation changes don't affect this class."""
         return await self.web_scraper.scrape(url)
 
     async def get_medical_context(
         self, topic: str, source_url: str | None = None
     ) -> tuple[str, str]:
+        """Return a (context_text, status) tuple aggregated from Qdrant, PubMed, and optional web source."""
         logger.info("fetching_medical_context", topic=topic, source_url=source_url)
 
-        # 0. Web scraping та Qdrant — запускаємо паралельно
+        # 0. Run web scraping and Qdrant retrieval in parallel
         qdrant_task = asyncio.create_task(self._fetch_from_qdrant(topic))
         web_task = (
             asyncio.create_task(self._fetch_from_web(source_url))
@@ -284,7 +287,7 @@ class FactChecker:
         unique_nodes = await qdrant_task
         web_context = await web_task if web_task else None
 
-        # 1. Qdrant порожній
+        # 1. Qdrant returned nothing
         if not unique_nodes:
             logger.warning("no_medical_context_in_qdrant", topic=topic)
             pubmed_context = await self._fetch_from_pubmed(topic)
@@ -303,7 +306,7 @@ class FactChecker:
             threshold=RELEVANCE_THRESHOLD,
         )
 
-        # 2. Qdrant має релевантні chunks — фільтруємо за keyword overlap
+        # 2. Qdrant has relevant chunks — filter by keyword overlap
         if relevant_nodes:
             context_parts: list[str] = []
             for node in relevant_nodes:
@@ -329,14 +332,14 @@ class FactChecker:
                     web_context, "\n\n".join(context_parts), "ПОВНИЙ"
                 )
 
-            # Всі chunks відкинуті через низький keyword overlap — fallback до PubMed
+            # All chunks rejected due to low keyword overlap — fall back to PubMed
             logger.warning("all_chunks_rejected_keyword_overlap_fallback_pubmed")
             pubmed_context = await self._fetch_from_pubmed(topic)
             rag_context = pubmed_context or LOW_RELEVANCE_SIGNAL
             status = "ПОВНИЙ" if pubmed_context else "ОБМЕЖЕНИЙ"
             return self._merge_web(web_context, rag_context, status)
 
-        # 3. unique_nodes не порожній, але немає жодного relevant_node (score < threshold)
+        # 3. unique_nodes is non-empty but no node meets the relevance score threshold
         logger.warning("no_relevant_nodes_found_fallback_pubmed")
         pubmed_context = await self._fetch_from_pubmed(topic)
         rag_context = pubmed_context or LOW_RELEVANCE_SIGNAL
@@ -347,7 +350,7 @@ class FactChecker:
     def _merge_web(
         web_context: str | None, rag_context: str, status: str
     ) -> tuple[str, str]:
-        """Prepend web_context до rag_context. Якщо web є — статус завжди ПОВНИЙ."""
+        """Prepend web_context to rag_context. If web context is present, status is always FULL."""
         if not web_context:
             return rag_context, status
         return f"{web_context}\n\n{rag_context}", "ПОВНИЙ"

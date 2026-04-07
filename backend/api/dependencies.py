@@ -7,7 +7,7 @@ from backend.config.settings import settings
 from backend.repositories.draft_repository import DraftRepository
 from backend.repositories.feedback_repository import FeedbackRepository
 
-# Для роботи всередині Docker-мережі використовуємо внутрішній хост та порт
+# Use internal host and port when running inside the Docker network
 DATABASE_URL = f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 
 engine = create_async_engine(DATABASE_URL, echo=False, pool_size=5, max_overflow=10)
@@ -17,7 +17,7 @@ async_session_maker = async_sessionmaker(
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency для отримання сесії БД."""
+    """Yield a database session for use as a FastAPI dependency."""
     async with async_session_maker() as session:
         try:
             yield session
@@ -32,12 +32,12 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 def get_draft_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> DraftRepository:
-    """Dependency для ін'єкції DraftRepository."""
+    """Return a DraftRepository bound to the current session."""
     return DraftRepository(session)
 
 
 def get_feedback_repository(
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> FeedbackRepository:
-    """Dependency для ін'єкції FeedbackRepository."""
+    """Return a FeedbackRepository bound to the current session."""
     return FeedbackRepository(session)

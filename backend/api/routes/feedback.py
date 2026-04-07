@@ -33,6 +33,7 @@ router = APIRouter(prefix="/slack", tags=["Slack Integration"])
 
 @router.post("/commands")
 async def slack_slash_command(request: Request):
+    """Handle Slack slash commands and open the draft generation modal."""
     form_data = await request.form()
     command = form_data.get("command")
     trigger_id = form_data.get("trigger_id")
@@ -41,7 +42,7 @@ async def slack_slash_command(request: Request):
     if command != "/draft":
         return {"response_type": "ephemeral", "text": SLACK_UI["cmd_unknown"]}
 
-    # Відкриваємо модалку замість парсингу тексту
+    # Open a modal instead of parsing the command text
     modal_view = build_generation_modal(channel_id=channel_id)
     slack_token = (
         settings.SLACK_BOT_TOKEN.get_secret_value() if settings.SLACK_BOT_TOKEN else ""
@@ -57,7 +58,7 @@ async def slack_slash_command(request: Request):
         if not res.json().get("ok"):
             logger.error("slack_modal_open_error", error=res.json())
 
-    # Повертаємо 200 OK без тіла, щоб Slack не дублював повідомлення
+    # Return 200 OK with no body so Slack does not duplicate the message
     return Response(status_code=200)
 
 
@@ -66,6 +67,7 @@ async def slack_interactions(
     request: Request,
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ):
+    """Dispatch Slack block_actions and view_submission interaction payloads."""
     form_data = await request.form()
     payload_str = form_data.get("payload")
 
@@ -87,11 +89,11 @@ async def slack_interactions(
         action_id = action.get("action_id")
         response_url = payload.get("response_url")
         logger.info("slack_block_action", action_id=action_id, trigger_id=trigger_id)
-        action_value = action.get("value", "temp_id|telegram")
+        action_value = action.get("value", "temp_id|threads")
         value_parts = action_value.split("|")
         draft_id = value_parts[0]
-        platform = value_parts[1] if len(value_parts) > 1 else "telegram"
-        # --- ГРУПА 1: Дії, що відкривають модалки (response_url НЕ потрібен) ---
+        platform = value_parts[1] if len(value_parts) > 1 else "threads"
+        # --- GROUP 1: Actions that open modals (response_url not needed) ---
         if action_id == "action_open_upload_modal":
             modal_view = build_upload_modal()
             async with httpx.AsyncClient() as client:
@@ -186,7 +188,7 @@ async def slack_interactions(
                             json={"trigger_id": trigger_id, "view": modal_view},
                         )
             return Response(status_code=200)
-        # --- ГРУПА 2: Дії з повідомленнями (response_url ОБОВ'ЯЗКОВИЙ) ---
+        # --- GROUP 2: Message actions (response_url required) ---
         if action_id in [
             "action_publish_draft",
             "action_reject_draft",
@@ -200,7 +202,7 @@ async def slack_interactions(
                 )
                 return Response(status_code=200)
 
-            # Беремо topic і draft_text з БД якщо є draft_id
+            # Load topic and draft_text from DB when draft_id is available
             topic = "Медичний пост"
             blocks = payload.get("message", {}).get("blocks", [])
             raw_draft = ""
@@ -220,7 +222,7 @@ async def slack_interactions(
 
             async with httpx.AsyncClient() as client:
                 if action_id == "action_publish_draft":
-                    # ДОДАНО: Змінюємо статус на Опубліковано
+                    # Update status to Published
                     if draft_id.isdigit():
                         repo = DraftRepository(session)
                         await repo.update(
@@ -294,7 +296,7 @@ async def slack_interactions(
         callback_id = view.get("callback_id")
         state_values = view.get("state", {}).get("values", {})
 
-        # --- СЦЕНАРІЙ 1: Генерація нового драфту ---
+        # --- SCENARIO 1: Generate a new draft ---
         if callback_id == "modal_generate_draft":
             channel_id = view.get("private_metadata")
             topic = (
@@ -321,8 +323,8 @@ async def slack_interactions(
                 platform=platform,
             )
 
-            # --- ДОДАНО: СТВОРЕННЯ КОРИСТУВАЧА ТА ДРАФТУ В БД ---
-            # 1. Знаходимо або створюємо користувача (Slack ID)
+            # Create user and draft in the database
+            # 1. Find or create the user by Slack ID
             user_query = await session.execute(
                 select(User).where(User.username == user_id)
             )
@@ -332,15 +334,14 @@ async def slack_interactions(
                 session.add(db_user)
                 await session.flush()
 
-            # 2. Створюємо драфт (статус pending)
+            # 2. Create draft with pending status
             repo = DraftRepository(session)
             new_draft = await repo.create(
                 DraftCreate(topic=topic, platform=platform, user_id=db_user.id)
             )
             real_draft_id = str(new_draft.id)
-            # ---------------------------------------------------
 
-            # Передаємо РЕАЛЬНИЙ ID з бази замість UUID
+            # Pass the real database ID instead of a UUID
             await generate_draft_task.kiq(  # type: ignore[call-overload]
                 topic=topic,
                 platform=platform.value,
@@ -367,7 +368,7 @@ async def slack_interactions(
                 status_code=200,
             )
 
-        # --- СЦЕНАРІЙ 2: Збереження відредагованого драфту ---
+        # --- SCENARIO 2: Save an edited draft ---
         elif callback_id == "modal_edit_draft":
             draft_content = (
                 state_values.get("block_draft_content", {})
@@ -375,7 +376,7 @@ async def slack_interactions(
                 .get("value", "")
             )
 
-            # Надійний парсинг селектора платформи
+            # Safely parse the platform selector value
             block_state = state_values.get("block_platform_select", {}).get(
                 "input_platform_select", {}
             )
@@ -387,7 +388,7 @@ async def slack_interactions(
             )
             platform = Platform(platform_raw) if platform_raw else None
 
-            # 1. СПОЧАТКУ витягуємо метадані (ID, канали, топік)
+            # 1. Extract metadata first (ID, channels, topic)
             metadata_parts = view.get("private_metadata", "").split("|")
             topic = metadata_parts[0] if len(metadata_parts) > 0 else "Медичний пост"
             draft_id = metadata_parts[1] if len(metadata_parts) > 1 else "temp_id"
@@ -401,21 +402,21 @@ async def slack_interactions(
                 draft_id=draft_id,
             )
 
-            # 2. ПОТІМ зберігаємо в базу даних
+            # 2. Then save to the database
             if draft_id.isdigit():
                 repo = DraftRepository(session)
                 await repo.update(
                     int(draft_id), DraftUpdate(content=draft_content, platform=platform)
                 )
 
-            # 3. ПОТІМ перемальовуємо повідомлення новою карткою з кнопками
+            # 3. Then redraw the message with an updated card and buttons
             if msg_channel_id and message_ts:
                 updated_blocks = build_draft_card(
                     topic=topic,
                     draft=draft_content,
                     user_id=user_id,
                     draft_id=draft_id,
-                    platform=platform.value if platform else "telegram",
+                    platform=platform.value if platform else "threads",
                 )
                 async with httpx.AsyncClient() as client:
                     await client.post(
@@ -431,14 +432,14 @@ async def slack_interactions(
                         },
                     )
 
-            # 4. В КІНЦІ закриваємо модалку одним return
+            # 4. Close the modal with a single return at the end
             return Response(
                 content=json.dumps({"response_action": "clear"}),
                 media_type="application/json",
                 status_code=200,
             )
 
-        # --- СЦЕНАРІЙ 3: Ручний пост ---
+        # --- SCENARIO 3: Manual post ---
         elif callback_id == "modal_manual_post":
             content = (
                 state_values.get("block_manual_content", {})
@@ -469,7 +470,7 @@ async def slack_interactions(
                 else None
             )
 
-            # Знаходимо або створюємо користувача
+            # Find or create the user
             user_query = await session.execute(
                 select(User).where(User.username == user_id)
             )
@@ -522,11 +523,11 @@ async def slack_interactions(
                 status_code=200,
             )
 
-        # --- СЦЕНАРІЙ 4: Планування публікації ---
+        # --- SCENARIO 4: Schedule a publication ---
         elif callback_id == "modal_schedule_draft":
             metadata_parts = view.get("private_metadata", "").split("|")
             draft_id = metadata_parts[0] if len(metadata_parts) > 0 else ""
-            platform = metadata_parts[1] if len(metadata_parts) > 1 else "telegram"
+            platform = metadata_parts[1] if len(metadata_parts) > 1 else "threads"
 
             schedule_timestamp = (
                 state_values.get("block_schedule_time", {})
@@ -572,7 +573,7 @@ async def slack_interactions(
                 status_code=200,
             )
 
-        # --- СЦЕНАРІЙ 5: Завантаження гайдлайну ---
+        # --- SCENARIO 5: Upload a guideline ---
         elif callback_id == "modal_upload_guideline":
             files = (
                 state_values.get("block_file_upload", {})
@@ -606,7 +607,7 @@ async def slack_events(
     request: Request,
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ):
-    """Обробка Events API (наприклад, відкриття вкладки Home)."""
+    """Handle Events API callbacks such as the app_home_opened event."""
     data = await request.json()
 
     if data.get("type") == "url_verification":
@@ -618,7 +619,7 @@ async def slack_events(
     logger.info("slack_event_received", event_type=event.get("type"), user_id=user_id)
 
     if event.get("type") == "app_home_opened":
-        # 1. Витягуємо останні 10 драфтів
+        # 1. Fetch the latest 10 drafts
         repo = DraftRepository(session)
         recent_drafts = await repo.get_recent_drafts(limit=10)
 
@@ -626,7 +627,7 @@ async def slack_events(
             "slack_home_opened", user_id=user_id, drafts_count=len(recent_drafts)
         )
 
-        # 2. Рендеримо дашборд
+        # 2. Render the dashboard
         slack_token = (
             settings.SLACK_BOT_TOKEN.get_secret_value()
             if hasattr(settings.SLACK_BOT_TOKEN, "get_secret_value")

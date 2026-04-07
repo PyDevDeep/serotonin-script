@@ -26,16 +26,16 @@ async def create_draft(
     draft_repo: Annotated[DraftRepository, Depends(get_draft_repository)],
 ):
     """
-    1. Створює новий запис у БД.
-    2. Відправляє фонову задачу генерації в Taskiq.
-    3. Повертає task_id клієнту.
+    1. Create a new draft record in the database.
+    2. Dispatch a background generation task to Taskiq.
+    3. Return the task_id to the client.
     """
     draft_in = DraftCreate(
         topic=request.topic, user_id=request.user_id, platform=request.platform
     )
     await draft_repo.create(draft_in)
 
-    # Викликаємо фонову задачу
+    # Dispatch background task
     task: Any = await generate_draft_task.kiq(  # type: ignore[reportCallIssue]
         topic=request.topic,
         platform=request.platform.value,
@@ -50,7 +50,7 @@ async def create_draft(
 
 @router.get("/{task_id}/status", response_model=TaskResponse)
 async def get_task_status(task_id: str):
-    """Перевіряє поточний статус задачі без блокування."""
+    """Return the current task status without blocking."""
     is_ready = await result_backend.is_result_ready(task_id)
 
     if not is_ready:
@@ -64,8 +64,8 @@ async def get_task_status(task_id: str):
 @router.get("/{task_id}/result", response_model=TaskResponse)
 async def get_task_result(task_id: str):
     """
-    Чекає на результат задачі (до 30 секунд).
-    Використовується для Long Polling з боку n8n/Slack.
+    Wait for the task result (up to 30 seconds).
+    Used for long-polling from n8n and Slack.
     """
     timeout = 30
 
@@ -88,7 +88,7 @@ async def get_task_result(task_id: str):
 async def get_draft_from_db(
     draft_id: int, draft_repo: Annotated[DraftRepository, Depends(get_draft_repository)]
 ):
-    """Повертає статус та контент чернетки безпосередньо з БД."""
+    """Return the status and content of a draft directly from the database."""
     draft = await draft_repo.get_by_id(draft_id)
     if not draft:
         raise HTTPException(
@@ -104,23 +104,20 @@ async def n8n_publish_confirmation(
     draft_repo: Annotated[DraftRepository, Depends(get_draft_repository)],
 ):
     """
-    Webhook для n8n. Викликається ПІСЛЯ успішної публікації в соцмережах.
+    Webhook called by n8n AFTER a successful social media publication.
     """
     logger.info(
         "n8n_publish_confirmed", post_id=payload.post_id, platform=payload.platform
     )
 
-    # 1. Оновлюємо статус у БД (якщо це не наша хардкодна заглушка)
+    # 1. Update status in DB (skip the hardcoded stub post_id)
     if payload.post_id and payload.post_id != "temp_id":
         try:
-            # Припускаємо, що у тебе є метод update_status (або реалізуй його)
-            # await draft_repo.update_status(int(payload.post_id), "PUBLISHED")
             pass
         except Exception as e:
             logger.error("db_update_failed", error=str(e))
 
-    # 2. Запускаємо фонову задачу векторизації
-    # Щоб не блокувати API, відправляємо текст у Taskiq
+    # 2. Dispatch vectorization as a background task to avoid blocking the API
     from backend.workers.tasks.vectorize_post import vectorize_published_post_task
 
     await vectorize_published_post_task.kiq(

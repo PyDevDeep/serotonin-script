@@ -5,9 +5,11 @@ logger = structlog.get_logger()
 
 
 class RetryTrackerMiddleware(TaskiqMiddleware):
+    """Taskiq middleware that logs warning messages for retry attempts."""
+
     def pre_execute(self, message: TaskiqMessage) -> TaskiqMessage:
-        """Відстежує, чи є цей запуск повторним (retry)."""
-        # Taskiq зберігає кількість спроб у labels
+        """Log a warning if this task execution is a retry attempt."""
+        # Taskiq stores the retry count in message labels
         retry_count = message.labels.get("retry_count", 0)
 
         if int(retry_count) > 0:

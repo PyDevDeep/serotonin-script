@@ -10,9 +10,12 @@ logger = structlog.get_logger()
 
 
 class StructuredLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware that logs each request with a unique request ID and timing."""
+
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        """Process the request, inject a request ID, and log duration and status."""
         request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
 
         # Bind request_id to the logger context for this specific request

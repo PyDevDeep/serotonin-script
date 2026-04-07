@@ -28,25 +28,26 @@ logger = structlog.get_logger()
 
 
 async def index_collection(collection_name: str, data_dir: str):
+    """Load documents from data_dir, chunk them, and index into the named Qdrant collection."""
     logger.info("indexing_started", collection=collection_name, directory=data_dir)
 
     if not Path(data_dir).exists():
         logger.warning("directory_not_found_skipping", directory=data_dir)
         return
 
-    # 1. Завантаження
+    # 1. Load documents
     documents = load_documents_from_dir(data_dir)
     if not documents:
         logger.warning("no_documents_found", directory=data_dir)
         return
 
-    # 2. Чанкінг
+    # 2. Chunk documents
     nodes = chunk_documents(documents)
     logger.info(
         "chunking_completed", chunks_count=len(nodes), documents_count=len(documents)
     )
 
-    # 3. Підключення до Qdrant (локальний тунель/хост)
+    # 3. Connect to Qdrant (local tunnel / host)
     qdrant_port = int(os.environ.get("EXTERNAL_QDRANT_PORT", 6333))
     client = AsyncQdrantClient(host="127.0.0.1", port=qdrant_port)
     sync_client = QdrantClient(host="127.0.0.1", port=qdrant_port)
@@ -59,18 +60,18 @@ async def index_collection(collection_name: str, data_dir: str):
     )
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
 
-    # 4. Налаштування глобальних налаштувань LlamaIndex
+    # 4. Configure global LlamaIndex settings
     Settings.embed_model = get_embedder()
-    Settings.llm = None  # Вимикаємо LLM під час індексації, щоб не витрачати токени
+    Settings.llm = None  # Disable LLM during indexing to avoid token costs
 
-    # 5. Генерація векторів та індексація
-    # 5. Генерація векторів та індексація
+    # 5. Generate embeddings and save to Qdrant
     logger.info("generating_embeddings_and_saving_to_qdrant")
     VectorStoreIndex(nodes=nodes, storage_context=storage_context, show_progress=True)
     logger.info("indexing_completed_successfully", collection=collection_name)
 
 
 async def main():
+    """Index both the doctor_style and medical_knowledge collections."""
     kb_path = Path("knowledge_base")
 
     await index_collection(

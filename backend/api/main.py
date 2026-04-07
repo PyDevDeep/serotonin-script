@@ -18,6 +18,7 @@ structlog.configure(
 
 
 def create_app() -> FastAPI:
+    """Create and configure the FastAPI application instance."""
     app = FastAPI(
         title=settings.PROJECT_NAME,
         version=settings.VERSION,

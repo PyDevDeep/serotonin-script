@@ -7,8 +7,10 @@ logger = structlog.get_logger()
 
 
 class StructlogMiddleware(TaskiqMiddleware):
+    """Taskiq middleware that logs task start and completion via structlog."""
+
     def pre_execute(self, message: TaskiqMessage) -> TaskiqMessage:
-        """Виконується безпосередньо перед запуском таску у воркері."""
+        """Log task start details before the task executes in the worker."""
         logger.info(
             "task_execution_started",
             task_id=message.task_id,
@@ -17,7 +19,7 @@ class StructlogMiddleware(TaskiqMiddleware):
         return message
 
     def post_execute(self, message: TaskiqMessage, result: TaskiqResult[Any]) -> None:
-        """Виконується після завершення таску (успішного або з помилкою)."""
+        """Log task completion or failure after execution."""
         if result.is_err:
             logger.error(
                 "task_execution_failed",

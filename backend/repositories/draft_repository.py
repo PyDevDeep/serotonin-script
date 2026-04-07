@@ -9,10 +9,13 @@ from backend.models.schemas import DraftCreate, DraftUpdate
 
 
 class DraftRepository:
+    """Repository for CRUD operations on Draft records."""
+
     def __init__(self, session: AsyncSession):
         self.session = session
 
     async def create(self, draft_in: DraftCreate) -> Draft:
+        """Create and persist a new Draft record."""
         db_draft = Draft(
             user_id=draft_in.user_id,
             topic=draft_in.topic,
@@ -25,11 +28,13 @@ class DraftRepository:
         return db_draft
 
     async def get_by_id(self, draft_id: int) -> Draft | None:
+        """Return a Draft by primary key, or None if not found."""
         stmt = select(Draft).where(Draft.id == draft_id)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
     async def update(self, draft_id: int, draft_update: DraftUpdate) -> Draft | None:
+        """Apply a partial update to a Draft and return the updated record."""
         update_data = draft_update.model_dump(exclude_unset=True)
         if not update_data:
             return await self.get_by_id(draft_id)
@@ -46,7 +51,7 @@ class DraftRepository:
     async def get_recent_drafts(
         self, limit: int = 10, offset: int = 0, platform: str | None = None
     ) -> list[Draft]:
-        """Витягує останні драфти (для Дашборду в Slack), виключаючи відхилені."""
+        """Return recent non-rejected drafts for the Slack dashboard."""
         stmt = (
             select(Draft)
             .where(Draft.status != DraftStatus.REJECTED)
@@ -60,7 +65,7 @@ class DraftRepository:
         return list(result.scalars().all())
 
     async def get_due_scheduled_drafts(self) -> list[Draft]:
-        """Витягує всі пости, час яких настав, але вони ще не опубліковані (для Планувальника)"""
+        """Return all scheduled drafts whose publication time has arrived."""
         now = datetime.now(timezone.utc)
         stmt = select(Draft).where(
             Draft.status == "scheduled", Draft.scheduled_at <= now

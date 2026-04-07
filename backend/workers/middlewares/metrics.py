@@ -7,11 +7,10 @@ logger = structlog.get_logger()
 
 
 class PrometheusMetricsMiddleware(TaskiqMiddleware):
+    """Taskiq middleware placeholder for Prometheus metrics collection."""
+
     def post_execute(self, message: TaskiqMessage, result: TaskiqResult[Any]) -> None:
-        """
-        TODO: Інтеграція з prometheus_client.
-        Тут будуть оновлюватись Counter (кількість задач) та Histogram (час виконання).
-        """
+        """Log a debug metrics event after task execution (placeholder for Prometheus integration)."""
         status = "error" if result.is_err else "success"
         logger.debug(
             "metrics_updated",

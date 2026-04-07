@@ -10,22 +10,30 @@ logger = structlog.get_logger()
 
 
 class LLMResponse:
+    """Wraps a ChatResponse together with the provider name that produced it."""
+
     def __init__(self, response: ChatResponse, provider: str) -> None:
+        """Store the response and provider identifier."""
         self.response = response
         self.provider = provider
 
     @property
     def message(self) -> ChatMessage:
+        """Return the chat message from the underlying response."""
         return self.response.message
 
 
 class LLMRouter:
+    """Routes LLM requests between Anthropic (primary) and OpenAI (fallback)."""
+
     def __init__(self) -> None:
+        """Initialise primary, fallback, and cheap LLM instances."""
         self.primary_llm = get_anthropic_llm()
         self.fallback_llm = get_openai_llm()
         self.cheap_llm = get_cheap_openai_llm()
 
     def _calculate_length(self, messages: list[ChatMessage]) -> int:
+        """Return the total character count of all message contents."""
         return sum(len(msg.content or "") for msg in messages)
 
     async def achat_with_fallback(

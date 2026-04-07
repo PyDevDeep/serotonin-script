@@ -6,6 +6,7 @@ logger = structlog.get_logger()
 
 
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Handle all unhandled exceptions and return a 500 JSON response."""
     logger.error(
         "unhandled_exception",
         error=str(exc),

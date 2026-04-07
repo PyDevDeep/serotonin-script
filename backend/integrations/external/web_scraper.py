@@ -11,6 +11,8 @@ MAX_CHARS = 12000
 
 
 class WebScraper:
+    """Scrapes web pages and returns their text content."""
+
     def __init__(self) -> None:
         self.reader = BeautifulSoupWebReader()
 
@@ -25,7 +27,7 @@ class WebScraper:
 
             content = documents[0].get_content()[:MAX_CHARS].strip()
             logger.info("web_scraper_success", url=url, chars=len(content))
-            return f"--- Джерело: WEB ({url}) ---\n{content}"
+            return f"--- Source: WEB ({url}) ---\n{content}"
         except Exception as e:
             logger.error("web_scraper_failed", url=url, error=str(e))
             return None

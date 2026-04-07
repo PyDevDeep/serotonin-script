@@ -21,6 +21,8 @@ logger = structlog.get_logger()
 
 
 class ContentGenerator:
+    """Orchestrates medical content generation with style matching, fact-checking, and Judge validation."""
+
     def __init__(self, llm_router: LLMRouter | None = None) -> None:
         self.llm_router = llm_router or LLMRouter()
         self.style_matcher = StyleMatcher()
@@ -29,6 +31,7 @@ class ContentGenerator:
     async def _judge_limited(
         self, post: str, topic: str, status: str
     ) -> dict[str, Any]:
+        """Run the LLM Judge and return a dict with 'pass' bool and 'violations' list."""
         judge_messages = [
             ChatMessage(role=MessageRole.SYSTEM, content=JUDGE_SYSTEM),
             ChatMessage(
@@ -67,6 +70,7 @@ class ContentGenerator:
         source_url: str | None = None,
         max_retries: int = 1,
     ) -> str:
+        """Generate a validated medical draft post for the given topic and platform."""
         logger.info(
             "draft_generation_started",
             topic=topic,
@@ -79,7 +83,7 @@ class ContentGenerator:
             topic, source_url=source_url
         )
 
-        # Робимо перевірку статусу стійкою до зайвих лапок або пробілів
+        # Normalize status string to guard against extra quotes or whitespace
         clean_status = context_status.strip().replace("'", "").replace('"', "").upper()
         is_limited = clean_status == "ОБМЕЖЕНИЙ"
 
@@ -95,7 +99,7 @@ class ContentGenerator:
                 context_status=context_status,
             )
 
-            # Генерація контенту (Anthropic/OpenAI)
+            # Generate content via Anthropic or OpenAI
             response = await self.llm_router.achat_with_fallback(
                 primary_messages=[
                     ChatMessage(
@@ -117,7 +121,7 @@ class ContentGenerator:
             if not is_limited:
                 break
 
-            # Валідація (Judge) — викликаємо ОДИН раз за ітерацію
+            # Run the Judge once per iteration
             judge_result = await self._judge_limited(result, topic, context_status)
 
             logger.info(
@@ -149,7 +153,7 @@ class ContentGenerator:
                     topic=topic,
                     attempts=max_retries + 1,
                 )
-                # Передаємо останній згенерований варіант (result) у виняток
+                # Pass the last generated draft into the exception for downstream use
                 raise JudgeFailedError(
                     topic=topic, attempts=max_retries + 1, draft=result
                 )
@@ -157,9 +161,10 @@ class ContentGenerator:
 
 
 class JudgeFailedError(Exception):
-    # Додаємо аргумент draft
+    """Raised when the LLM Judge rejects the draft after all retry attempts."""
+
     def __init__(self, topic: str, attempts: int, draft: str):
         super().__init__(f"Judge failed after {attempts} attempts for topic: '{topic}'")
         self.topic = topic
         self.attempts = attempts
-        self.draft = draft  # Зберігаємо текст для подальшого використання
+        self.draft = draft

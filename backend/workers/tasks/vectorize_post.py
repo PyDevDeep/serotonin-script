@@ -16,7 +16,7 @@ from backend.workers.broker import broker
 
 logger = structlog.get_logger()
 
-# Витягуємо токен безпечно (Pydantic SecretStr)
+# Safely extract the token from Pydantic SecretStr
 _raw_key = settings.OPENAI_API_KEY
 openai_key: str = (
     _raw_key.get_secret_value()
@@ -24,7 +24,7 @@ openai_key: str = (
     else str(_raw_key)
 )
 
-# Налаштовуємо глобальну модель для векторизації
+# Configure the global embedding model for vectorization
 embed_model = OpenAIEmbedding(
     model=settings.OPENAI_MODEL_EMBEDDING, dimensions=768, api_key=openai_key
 )
@@ -39,17 +39,17 @@ async def vectorize_published_post_task(content: str, platform: str) -> None:
     logger.info("vectorization_started", platform=platform)
 
     try:
-        # --- 1. ЗБЕРЕЖЕННЯ У MARKDOWN (Резервна копія) ---
+        # --- 1. Save to Markdown (backup copy) ---
         md_file_path = Path("knowledge_base/doctor_style/posts/doctor_style_posts.md")
         md_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Додаємо пост у кінець файлу з роздільником
+        # Append the post with a separator
         with md_file_path.open("a", encoding="utf-8") as f:
             f.write(f"\n\n---\n\n{content.strip()}")
 
         logger.info("markdown_backup_success", file_path=str(md_file_path))
 
-        # --- 2. ВЕКТОРИЗАЦІЯ В QDRANT ---
+        # --- 2. Vectorize and store in Qdrant ---
         qdrant_url = getattr(settings, "QDRANT_URL", "http://127.0.0.1:6333")
         aclient = AsyncQdrantClient(url=qdrant_url)
 

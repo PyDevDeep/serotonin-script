@@ -7,10 +7,12 @@ from sqlalchemy.sql import func
 
 
 class Base(DeclarativeBase):
-    pass
+    """SQLAlchemy declarative base for all ORM models."""
 
 
 class User(Base):
+    """ORM model representing an application user."""
+
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -28,6 +30,8 @@ class User(Base):
 
 
 class Draft(Base):
+    """ORM model representing a generated content draft."""
+
     __tablename__ = "drafts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -36,14 +40,12 @@ class Draft(Base):
     content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    # --- НОВІ ПОЛЯ ---
     platform: Mapped[str] = mapped_column(
         String(50), nullable=False, server_default="telegram"
     )
     scheduled_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    # -----------------
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -65,6 +67,8 @@ class Draft(Base):
 
 
 class PublishedPost(Base):
+    """ORM model representing a post published to a social platform."""
+
     __tablename__ = "published_posts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -79,6 +83,8 @@ class PublishedPost(Base):
 
 
 class Feedback(Base):
+    """ORM model representing user feedback on a draft."""
+
     __tablename__ = "feedback"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -94,13 +100,14 @@ class Feedback(Base):
 
 
 class TaskResult(Base):
+    """ORM model storing Taskiq task execution results."""
+
     __tablename__ = "task_results"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     task_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     status: Mapped[str] = mapped_column(String(50), nullable=False)
 
-    # Виправляємо тут: вказуємо типи для ключів та значень словника
     result: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(

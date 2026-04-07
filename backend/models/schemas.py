@@ -8,34 +8,46 @@ from backend.models.enums import DraftStatus, Platform, TaskStatus
 
 # --- Base Configuration ---
 class ORMModel(BaseModel):
+    """Base Pydantic model with ORM mode enabled."""
+
     model_config = ConfigDict(from_attributes=True)
 
 
 # --- User Schemas ---
 class UserBase(BaseModel):
+    """Shared user fields."""
+
     username: str = Field(..., max_length=255)
 
 
 class UserCreate(UserBase):
-    pass
+    """Schema for creating a new user."""
 
 
 class UserResponse(UserBase, ORMModel):
+    """Schema for reading a user record."""
+
     id: int
     created_at: datetime
 
 
 # --- Draft Schemas ---
 class DraftBase(BaseModel):
+    """Shared draft fields."""
+
     topic: str = Field(..., max_length=255)
 
 
 class DraftCreate(DraftBase):
+    """Schema for creating a new draft."""
+
     user_id: int
     platform: Platform
 
 
 class DraftUpdate(BaseModel):
+    """Schema for partial updates to a draft."""
+
     content: Optional[str] = None
     status: Optional[DraftStatus] = None
     platform: Optional[Platform] = None
@@ -43,27 +55,35 @@ class DraftUpdate(BaseModel):
 
 
 class DraftResponse(DraftBase, ORMModel):
+    """Schema for reading a draft record."""
+
     id: int
     user_id: int
     content: Optional[str]
     status: str
     platform: str
-    scheduled_at: Optional[datetime]  # ДОДАНО
+    scheduled_at: Optional[datetime]
     created_at: datetime
     updated_at: datetime
 
 
 # --- Published Post Schemas ---
 class PublishedPostBase(BaseModel):
+    """Shared fields for a published post."""
+
     platform: Platform
     post_url: str = Field(..., max_length=500)
 
 
 class PublishedPostCreate(PublishedPostBase):
+    """Schema for creating a published post record."""
+
     draft_id: int
 
 
 class PublishedPostResponse(PublishedPostBase, ORMModel):
+    """Schema for reading a published post record."""
+
     id: int
     draft_id: int
     published_at: datetime
@@ -71,15 +91,21 @@ class PublishedPostResponse(PublishedPostBase, ORMModel):
 
 # --- Feedback Schemas ---
 class FeedbackBase(BaseModel):
+    """Shared feedback fields."""
+
     comment: str
 
 
 class FeedbackCreate(FeedbackBase):
+    """Schema for submitting new feedback."""
+
     draft_id: int
     user_id: int
 
 
 class FeedbackResponse(FeedbackBase, ORMModel):
+    """Schema for reading a feedback record."""
+
     id: int
     draft_id: int
     user_id: int
@@ -88,6 +114,8 @@ class FeedbackResponse(FeedbackBase, ORMModel):
 
 # --- Task Result Schemas ---
 class TaskResultResponse(ORMModel):
+    """Schema for reading a task result record."""
+
     id: int
     task_id: str
     status: TaskStatus
@@ -107,7 +135,7 @@ class JudgeViolation(TypedDict):
     reason: str
 
 
-# Використовуємо функціональний синтаксис для підтримки ключа 'pass'
+# Use the functional syntax to support the reserved key 'pass'
 JudgeResult = TypedDict(
     "JudgeResult", {"pass": bool, "violations": List[JudgeViolation]}
 )
@@ -132,8 +160,10 @@ class TaskResponse(BaseModel):
     error: Optional[str] = None
 
 
-# --- СХЕМА ДЛЯ N8N ---
+# --- n8n webhook schema ---
 class PublishConfirmPayload(BaseModel):
+    """Payload received from n8n after a successful social media publication."""
+
     post_id: str
     platform: str
     content: str
