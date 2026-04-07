@@ -1,1 +1,50 @@
-# infra/docker-compose.prod.yml
+include:
+  - path: infra/docker/docker-compose.yml
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.base
+    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8001 --workers 2
+    env_file: .env
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - QDRANT_HOST=qdrant
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.base
+    command: taskiq worker backend.workers.broker:broker backend.workers.tasks
+    env_file: .env
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - QDRANT_HOST=qdrant
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.base
+    command: taskiq scheduler backend.workers.broker:scheduler backend.workers.tasks
+    env_file: .env
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped

@@ -1,0 +1,26 @@
+# Stage 1: Builder — exports dependencies without dev packages
+FROM python:3.13-slim AS builder
+
+WORKDIR /app
+ENV POETRY_VERSION=2.0.1
+
+RUN pip install --no-cache-dir "poetry==$POETRY_VERSION"
+COPY pyproject.toml poetry.lock ./
+RUN poetry export -f requirements.txt --output requirements.txt --without dev
+
+# Stage 2: Final — lean runtime image
+FROM python:3.13-slim
+
+WORKDIR /app
+
+RUN groupadd -r seratonin && useradd -r -g seratonin seratonin
+
+COPY --from=builder /app/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd && rm -rf /var/lib/apt/lists/*
+
+RUN chown -R seratonin:seratonin /app
+USER seratonin
