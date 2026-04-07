@@ -54,6 +54,10 @@ class Settings(BaseSettings):
     SLACK_LOG_CHANNEL: str = "C077Z79HB0V"
     # n8n
     N8N_WEBHOOK_URL: str = "http://n8n:5678/webhook/publish-post"
+    # Metrics
+    START_METRICS: bool = False
+    METRICS_PORT: int = 9000
+
     # Pydantic configuration
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

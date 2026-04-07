@@ -32,7 +32,8 @@ broker.add_middlewares(
 
 @broker.on_event(TaskiqEvents.WORKER_STARTUP)
 async def start_metrics_server(_state: Any) -> None:
-    start_http_server(9000)
+    if settings.START_METRICS:
+        start_http_server(settings.METRICS_PORT)
 
 
 # Initialise the scheduler with label and Redis sources

@@ -12,6 +12,7 @@ services:
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
       - QDRANT_HOST=qdrant
+      - START_METRICS=false
     depends_on:
       postgres:
         condition: service_healthy
@@ -29,6 +30,10 @@ services:
       - POSTGRES_HOST=postgres
       - REDIS_HOST=redis
       - QDRANT_HOST=qdrant
+      - START_METRICS=true
+      - METRICS_PORT=9000
+    ports:
+      - "9000:9000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,6 +49,10 @@ services:
     env_file: .env
     environment:
       - REDIS_HOST=redis
+      - START_METRICS=true
+      - METRICS_PORT=9001
+    ports:
+      - "9001:9001"
     depends_on:
       redis:
         condition: service_healthy
