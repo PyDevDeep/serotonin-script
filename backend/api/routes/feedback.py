@@ -4,15 +4,14 @@ from datetime import datetime, timezone
 import httpx
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config.lexicon import SLACK_UI
 from backend.config.settings import settings
-from backend.models.db_models import User
 from backend.models.enums import DraftStatus, Platform
-from backend.models.schemas import DraftCreate, DraftUpdate
+from backend.models.schemas import DraftUpdate
 from backend.repositories.draft_repository import DraftRepository
+from backend.services.draft_service import DraftService
 from backend.workers.dependencies import get_db_session
 from backend.workers.tasks.generate_draft import generate_draft_task
 from backend.workers.tasks.ingest_guideline import ingest_guideline_task
@@ -229,7 +228,7 @@ async def slack_interactions(
                             int(draft_id), DraftUpdate(status=DraftStatus.PUBLISHED)
                         )
 
-                    await publish_post_task.kiq(
+                    await publish_post_task.kiq(  # type: ignore[call-overload]
                         post_id=draft_id, platform=platform, content=draft_text
                     )
                     await client.post(
@@ -323,31 +322,9 @@ async def slack_interactions(
                 platform=platform,
             )
 
-            # Create user and draft in the database
-            # 1. Find or create the user by Slack ID
-            user_query = await session.execute(
-                select(User).where(User.username == user_id)
-            )
-            db_user = user_query.scalar_one_or_none()
-            if not db_user:
-                db_user = User(username=user_id)
-                session.add(db_user)
-                await session.flush()
-
-            # 2. Create draft with pending status
-            repo = DraftRepository(session)
-            new_draft = await repo.create(
-                DraftCreate(topic=topic, platform=platform, user_id=db_user.id)
-            )
-            real_draft_id = str(new_draft.id)
-
-            # Pass the real database ID instead of a UUID
-            await generate_draft_task.kiq(  # type: ignore[call-overload]
-                topic=topic,
-                platform=platform.value,
-                user_id=user_id,
-                channel_id=channel_id,
-                draft_id=real_draft_id,
+            draft_service = DraftService(session)
+            await draft_service.generate_draft_from_slack(
+                user_id=user_id, topic=topic, platform=platform, channel_id=channel_id
             )
 
             async with httpx.AsyncClient() as client:
@@ -470,52 +447,20 @@ async def slack_interactions(
                 else None
             )
 
-            # Find or create the user
-            user_query = await session.execute(
-                select(User).where(User.username == user_id)
+            draft_service = DraftService(session)
+            await draft_service.process_manual_post(
+                user_id=user_id,
+                content=content,
+                platform=platform,
+                scheduled_at=scheduled_at,
             )
-            db_user = user_query.scalar_one_or_none()
-            if not db_user:
-                db_user = User(username=user_id)
-                session.add(db_user)
-                await session.flush()
 
-            repo = DraftRepository(session)
-
-            if scheduled_at:
-                new_draft = await repo.create(
-                    DraftCreate(
-                        topic=content[:80], platform=platform, user_id=db_user.id
-                    )
-                )
-                await repo.update(
-                    new_draft.id,
-                    DraftUpdate(
-                        content=content,
-                        status=DraftStatus.SCHEDULED,
-                        scheduled_at=scheduled_at,
-                    ),
-                )
-                logger.info(
-                    "manual_post_scheduled",
-                    user_id=user_id,
-                    platform=platform,
-                    scheduled_at=scheduled_at.isoformat(),
-                )
-            else:
-                new_draft = await repo.create(
-                    DraftCreate(
-                        topic=content[:80], platform=platform, user_id=db_user.id
-                    )
-                )
-                await repo.update(
-                    new_draft.id,
-                    DraftUpdate(content=content, status=DraftStatus.PUBLISHED),
-                )
-                await publish_post_task.kiq(
-                    post_id=str(new_draft.id), platform=platform.value, content=content
-                )
-                logger.info("manual_post_published", user_id=user_id, platform=platform)
+            logger.info(
+                "manual_post_processed",
+                user_id=user_id,
+                platform=platform,
+                scheduled=bool(scheduled_at),
+            )
 
             return Response(
                 content=json.dumps({"response_action": "clear"}),
