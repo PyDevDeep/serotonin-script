@@ -79,4 +79,6 @@ SLACK_UI = {
     "schedule_modal_label": "📅 Час публікації (UTC)",
     "schedule_success": "🕒 Пост успішно заплановано на *{scheduled_at}* UTC!\n\n_Ви можете побачити його у вкладці Home._",
     "schedule_no_time_error": "⚠️ Вкажіть час публікації у формі нижче.",
+    # --- Publish Error Notification ---
+    "publish_error_notification": "❌ *Publication error*\n\n*Platform:* {platform}\n*Draft ID:* {post_id}\n*Error:* `{error_message}`",
 }
