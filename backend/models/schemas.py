@@ -143,7 +143,7 @@ JudgeResult = TypedDict(
 
 # --- Taskiq API Schemas ---
 class DraftGenerateRequest(BaseModel):
-    """Схема для запиту на генерацію нового драфту"""
+    """Schema for requesting a new draft generation."""
 
     topic: str = Field(..., max_length=255)
     platform: Platform
@@ -152,7 +152,7 @@ class DraftGenerateRequest(BaseModel):
 
 
 class TaskResponse(BaseModel):
-    """Універсальна схема для статусів та результатів Taskiq"""
+    """Generic schema for Taskiq task statuses and results."""
 
     task_id: str
     status: str
@@ -167,3 +167,12 @@ class PublishConfirmPayload(BaseModel):
     post_id: str
     platform: str
     content: str
+
+
+class PublishError(BaseModel):
+    """Payload received when a social media publication fails."""
+
+    post_id: str
+    platform: str
+    error_message: str
+    user_id: str | None = None

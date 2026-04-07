@@ -1,5 +1,5 @@
-import structlog
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from backend.api.middleware.error_handler import (
     domain_exception_handler,
@@ -9,16 +9,9 @@ from backend.api.middleware.logging import StructuredLoggingMiddleware
 from backend.api.routes import drafts, feedback, health
 from backend.config.settings import settings
 from backend.services.exceptions import DomainError
+from backend.utils.logging import setup_logging
 
-# Basic structlog configuration for JSON output
-structlog.configure(
-    processors=[
-        structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.JSONRenderer(),
-    ]
-)
+setup_logging()
 
 
 def create_app() -> FastAPI:
@@ -30,6 +23,8 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
     )
+
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
     app.add_middleware(StructuredLoggingMiddleware)
     app.add_exception_handler(DomainError, domain_exception_handler)

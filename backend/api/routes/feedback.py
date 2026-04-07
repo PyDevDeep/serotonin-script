@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config.lexicon import SLACK_UI
 from backend.config.settings import settings
 from backend.models.enums import DraftStatus, Platform
-from backend.models.schemas import DraftUpdate
+from backend.models.schemas import DraftUpdate, PublishError
 from backend.repositories.draft_repository import DraftRepository
 from backend.services.draft_service import DraftService
 from backend.workers.dependencies import get_db_session
@@ -543,6 +543,49 @@ async def slack_interactions(
                 media_type="application/json",
                 status_code=200,
             )
+
+    return Response(status_code=200)
+
+
+@router.post("/error")
+async def report_publish_error(
+    error: PublishError,
+    session: AsyncSession = Depends(get_db_session),  # noqa: B008
+):
+    """Receive a publish failure report, update draft status, and notify via Slack."""
+    logger.error(
+        "publish_error_received",
+        post_id=error.post_id,
+        platform=error.platform,
+        error=error.error_message,
+    )
+
+    # Update draft status to FAILED in the database
+    if error.post_id.isdigit():
+        repo = DraftRepository(session)
+        await repo.update(int(error.post_id), DraftUpdate(status=DraftStatus.FAILED))
+
+    # Send a Slack notification to the user or the fallback log channel
+    slack_token = (
+        settings.SLACK_BOT_TOKEN.get_secret_value() if settings.SLACK_BOT_TOKEN else ""
+    )
+    target = error.user_id if error.user_id else settings.SLACK_LOG_CHANNEL
+
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            "https://slack.com/api/chat.postMessage",
+            headers={"Authorization": f"Bearer {slack_token}"},
+            json={
+                "channel": target,
+                "text": SLACK_UI["publish_error_notification"].format(
+                    platform=error.platform.upper(),
+                    post_id=error.post_id,
+                    error_message=error.error_message,
+                ),
+            },
+        )
+        if not res.json().get("ok"):
+            logger.error("slack_publish_error_notification_failed", error=res.json())
 
     return Response(status_code=200)
 
