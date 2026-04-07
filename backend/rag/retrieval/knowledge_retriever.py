@@ -15,7 +15,7 @@ class KnowledgeRetriever:
     def __init__(self) -> None:
         """Initialise the Qdrant client, vector store, index, and retriever."""
         self.client = AsyncQdrantClient(
-            host="127.0.0.1", port=settings.EXTERNAL_QDRANT_PORT
+            host=settings.QDRANT_HOST, port=settings.EXTERNAL_QDRANT_PORT
         )
         self.vector_store = QdrantVectorStore(
             collection_name="medical_knowledge", aclient=self.client

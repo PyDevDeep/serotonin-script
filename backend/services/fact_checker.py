@@ -26,13 +26,17 @@ NO_CONTEXT_SIGNAL = (
 class FactChecker:
     """Gathers and filters medical context from Qdrant, PubMed, and web sources."""
 
-    def __init__(self, llm_router: LLMRouter | None = None) -> None:
-        self.retriever = HybridRetrieverPipeline(
-            collection_name="medical_knowledge", top_k=2
-        )
-        self.pubmed = PubMedClient()
-        self.web_scraper = WebScraper()
-        self.llm_router = llm_router or LLMRouter()
+    def __init__(
+        self,
+        retriever: HybridRetrieverPipeline,
+        pubmed: PubMedClient,
+        web_scraper: WebScraper,
+        llm_router: LLMRouter,
+    ) -> None:
+        self.retriever = retriever
+        self.pubmed = pubmed
+        self.web_scraper = web_scraper
+        self.llm_router = llm_router
 
     def _build_queries(self, topic: str) -> list[str]:
         """Return the topic as-is for use as a Qdrant query."""

@@ -23,10 +23,15 @@ logger = structlog.get_logger()
 class ContentGenerator:
     """Orchestrates medical content generation with style matching, fact-checking, and Judge validation."""
 
-    def __init__(self, llm_router: LLMRouter | None = None) -> None:
-        self.llm_router = llm_router or LLMRouter()
-        self.style_matcher = StyleMatcher()
-        self.fact_checker = FactChecker(llm_router=self.llm_router)
+    def __init__(
+        self,
+        llm_router: LLMRouter,
+        style_matcher: StyleMatcher,
+        fact_checker: FactChecker,
+    ) -> None:
+        self.llm_router = llm_router
+        self.style_matcher = style_matcher
+        self.fact_checker = fact_checker
 
     async def _judge_limited(
         self, post: str, topic: str, status: str

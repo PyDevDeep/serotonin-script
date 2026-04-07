@@ -10,11 +10,8 @@ logger = structlog.get_logger()
 class StyleMatcher:
     """Retrieves doctor-style examples from Qdrant and formats them as a context string."""
 
-    def __init__(self) -> None:
-        # Use the generic hybrid pipeline instead of the old StyleRetriever
-        self.retriever = HybridRetrieverPipeline(
-            collection_name="doctor_style", top_k=5
-        )
+    def __init__(self, retriever: HybridRetrieverPipeline) -> None:
+        self.retriever = retriever
 
     async def get_style_context(self, topic: str) -> str:
         """Retrieve relevant doctor-style texts and return them as a single context string."""

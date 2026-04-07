@@ -15,7 +15,7 @@ class HybridRetrieverPipeline:
     def __init__(self, collection_name: str, top_k: int = 5) -> None:
         """Initialise the Qdrant client, vector store, index, and hybrid retriever."""
         self.client = AsyncQdrantClient(
-            host="127.0.0.1", port=settings.EXTERNAL_QDRANT_PORT
+            host=settings.QDRANT_HOST, port=settings.EXTERNAL_QDRANT_PORT
         )
         self.vector_store = QdrantVectorStore(
             collection_name=collection_name, aclient=self.client, enable_hybrid=True
