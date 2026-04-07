@@ -1,7 +1,7 @@
 from typing import Any
 
 from prometheus_client import start_http_server
-from taskiq import TaskiqScheduler
+from taskiq import TaskiqEvents, TaskiqScheduler
 from taskiq.schedule_sources import LabelScheduleSource
 from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend, RedisScheduleSource
 
@@ -12,9 +12,6 @@ from backend.workers.middlewares.metrics import PrometheusMetricsMiddleware
 from backend.workers.middlewares.retry import RetryTrackerMiddleware
 
 setup_logging()
-# Expose worker metrics on a dedicated port so Prometheus can scrape it
-# separately from the FastAPI /metrics endpoint.
-start_http_server(9000)
 
 redis_url = f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/0"
 
@@ -31,6 +28,12 @@ broker.add_middlewares(
     RetryTrackerMiddleware(),
     PrometheusMetricsMiddleware(),
 )
+
+
+@broker.on_event(TaskiqEvents.WORKER_STARTUP)
+async def start_metrics_server(_state: Any) -> None:
+    start_http_server(9000)
+
 
 # Initialise the scheduler with label and Redis sources
 redis_source = RedisScheduleSource(redis_url)
