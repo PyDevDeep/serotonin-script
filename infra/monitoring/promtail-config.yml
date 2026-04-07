@@ -14,12 +14,12 @@ scrape_configs:
       - host: unix:///var/run/docker.sock
         refresh_interval: 5s
     relabel_configs:
+      # Keep only serotonin_script containers
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/serotonin_script-.*"
+        action: keep
       - source_labels: ["__meta_docker_container_name"]
         regex: "/(.*)"
         target_label: "container"
       - source_labels: ["__meta_docker_container_log_stream"]
         target_label: "stream"
-      # Drop containers without a name (system containers)
-      - source_labels: ["container"]
-        regex: ".+"
-        action: keep

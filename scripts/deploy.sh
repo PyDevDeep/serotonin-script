@@ -1,4 +1,3 @@
-#!/bin/bash
 set -e
 
 echo "🚀 Starting Production Deployment..."
@@ -9,7 +8,7 @@ docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml down --rem
 
 # 2. Збірка нових образів
 echo "📦 Building images..."
-docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml build
+docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d --build
 
 # 3. Запуск бази даних та перевірка здоров'я
 echo "🗄️ Starting Database..."
