@@ -1,20 +1,26 @@
 from typing import Any
 
-import structlog
+from prometheus_client import Counter, Histogram
 from taskiq import TaskiqMessage, TaskiqMiddleware, TaskiqResult
 
-logger = structlog.get_logger()
+TASKS_TOTAL = Counter(
+    "taskiq_tasks_total",
+    "Total tasks executed",
+    ["task_name", "status"],
+)
+
+TASK_DURATION = Histogram(
+    "taskiq_task_duration_seconds",
+    "Task execution time in seconds",
+    ["task_name"],
+)
 
 
 class PrometheusMetricsMiddleware(TaskiqMiddleware):
-    """Taskiq middleware placeholder for Prometheus metrics collection."""
+    """Taskiq middleware that records task execution counts and durations."""
 
     def post_execute(self, message: TaskiqMessage, result: TaskiqResult[Any]) -> None:
-        """Log a debug metrics event after task execution (placeholder for Prometheus integration)."""
+        """Increment counters and observe duration after each task execution."""
         status = "error" if result.is_err else "success"
-        logger.debug(
-            "metrics_updated",
-            metric="task_execution",
-            task_name=message.task_name,
-            status=status,
-        )
+        TASKS_TOTAL.labels(task_name=message.task_name, status=status).inc()
+        TASK_DURATION.labels(task_name=message.task_name).observe(result.execution_time)
