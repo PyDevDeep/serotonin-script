@@ -2,7 +2,7 @@ import re
 
 import structlog
 
-from backend.rag.pipelines.hybrid_search import HybridRetrieverPipeline
+from backend.rag.retrieval.base import RetrieverProtocol
 
 logger = structlog.get_logger()
 
@@ -10,7 +10,7 @@ logger = structlog.get_logger()
 class StyleMatcher:
     """Retrieves doctor-style examples from Qdrant and formats them as a context string."""
 
-    def __init__(self, retriever: HybridRetrieverPipeline) -> None:
+    def __init__(self, retriever: RetrieverProtocol) -> None:
         self.retriever = retriever
 
     async def get_style_context(self, topic: str) -> str:

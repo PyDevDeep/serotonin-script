@@ -2,7 +2,7 @@ from pathlib import Path
 
 import httpx
 import structlog
-from llama_index.core import SimpleDirectoryReader, StorageContext, VectorStoreIndex
+from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.core.settings import Settings
 from llama_index.embeddings.openai import (  # type: ignore[reportMissingTypeStubs]
     OpenAIEmbedding,
@@ -13,6 +13,10 @@ from llama_index.vector_stores.qdrant import (  # type: ignore[reportMissingType
 from qdrant_client import AsyncQdrantClient
 
 from backend.config.settings import settings
+from backend.rag.indexing.document_loader import (
+    DocumentReaderProtocol,
+    LlamaIndexFileReader,
+)
 from backend.workers.broker import broker
 from backend.workers.callbacks import (
     notify_slack_upload_failure,
@@ -35,7 +39,10 @@ Settings.embed_model = OpenAIEmbedding(
 
 @broker.task(task_name="ingest_guideline_task", timeout=300)
 async def ingest_guideline_task(
-    file_url: str, file_name: str, user_id: str | None = None
+    file_url: str,
+    file_name: str,
+    user_id: str | None = None,
+    reader: DocumentReaderProtocol | None = None,
 ) -> None:
     """Download a file from Slack, vectorize it, and store it in Qdrant."""
     logger.info("ingest_guideline_started", file_name=file_name)
@@ -62,8 +69,9 @@ async def ingest_guideline_task(
 
         logger.info("file_downloaded_successfully", path=str(file_path))
 
-        # 2. Vectorize with LlamaIndex using SimpleDirectoryReader for the specific file
-        documents = SimpleDirectoryReader(input_files=[str(file_path)]).load_data()
+        # 2. Vectorize with LlamaIndex
+        file_reader: DocumentReaderProtocol = reader or LlamaIndexFileReader(file_path)
+        documents = file_reader.load_data()
 
         # Connect to Qdrant (medical_knowledge collection)
         qdrant_url = getattr(settings, "QDRANT_URL", "http://127.0.0.1:6333")

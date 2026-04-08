@@ -10,7 +10,7 @@ from backend.integrations.external.pubmed_client import PubMedClient
 from backend.integrations.external.web_scraper import WebScraper
 from backend.integrations.llm.router import LLMRouter
 from backend.models.schemas import PubMedArticle
-from backend.rag.pipelines.hybrid_search import HybridRetrieverPipeline
+from backend.rag.retrieval.base import RetrieverProtocol
 
 logger = structlog.get_logger()
 
@@ -28,7 +28,7 @@ class FactChecker:
 
     def __init__(
         self,
-        retriever: HybridRetrieverPipeline,
+        retriever: RetrieverProtocol,
         pubmed: PubMedClient,
         web_scraper: WebScraper,
         llm_router: LLMRouter,

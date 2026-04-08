@@ -34,10 +34,10 @@ def _is_post_separated(doc: Document) -> bool:
     return "\n---\n" in doc.text or doc.text.startswith("---\n")
 
 
-def _split_by_separator(doc: Document, separator: str = "\n---\n") -> list[BaseNode]:
+def _split_by_separator(doc: Document, separator: str = "\n---\n") -> list[TextNode]:
     """Ділить документ по роздільнику '---', повертає непорожні TextNode зі збереженням метаданих."""
     parts = doc.text.split(separator)
-    nodes: list[BaseNode] = []
+    nodes: list[TextNode] = []
     for part in parts:
         text = part.strip()
         if text:
