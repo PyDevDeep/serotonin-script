@@ -30,7 +30,12 @@ class DraftService:
         return db_user
 
     async def generate_draft_from_slack(
-        self, user_id: str, topic: str, platform: Platform, channel_id: str
+        self,
+        user_id: str,
+        topic: str,
+        platform: Platform,
+        channel_id: str,
+        source_url: str | None = None,
     ) -> str:
         db_user = await self.get_or_create_user(user_id)
 
@@ -42,6 +47,7 @@ class DraftService:
         await generate_draft_task.kiq(  # type: ignore[call-overload]
             topic=topic,
             platform=platform.value,
+            source_url=source_url,
             user_id=user_id,
             channel_id=channel_id,
             draft_id=real_draft_id,
