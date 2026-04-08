@@ -37,8 +37,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./infra/monitoring/promtail-config.yml:/etc/promtail/config.yml:ro
+      - promtail_positions:/tmp
     command: -config.file=/etc/promtail/config.yml
 
 volumes:
   grafana_data:
   loki_data:
+  promtail_positions:
