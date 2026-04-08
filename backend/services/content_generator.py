@@ -4,7 +4,7 @@ from typing import Any
 import structlog
 from llama_index.core.llms import ChatMessage, MessageRole
 
-from backend.agents.prompts.system_prompts import (
+from backend.config.system_prompts import (
     BASE_GENERATION_PROMPT_ANTHROPIC,
     BASE_GENERATION_PROMPT_OPENAI,
     DATA_BLOCK_TEMPLATE,

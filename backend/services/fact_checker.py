@@ -5,7 +5,7 @@ import structlog
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.schema import NodeWithScore
 
-from backend.agents.prompts.system_prompts import PUBMED_TRANSLATION_PROMPT
+from backend.config.system_prompts import PUBMED_TRANSLATION_PROMPT
 from backend.integrations.external.pubmed_client import PubMedClient
 from backend.integrations.external.web_scraper import WebScraper
 from backend.integrations.llm.router import LLMRouter
