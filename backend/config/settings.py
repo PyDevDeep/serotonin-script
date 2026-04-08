@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     SLACK_LOG_CHANNEL: str = "C077Z79HB0V"
     # n8n
     N8N_WEBHOOK_URL: str = "http://n8n:5678/webhook/publish-post"
+    N8N_HEALTH_URL: str = "http://n8n:5678/healthz"
+    N8N_HEALTH_INTERVAL: float = 30.0
+    N8N_HEALTH_FAILURE_THRESHOLD: int = 3
+    N8N_HEALTH_RECOVERY_TIMEOUT: float = 60.0
+    N8N_HEALTH_REQUEST_TIMEOUT: float = 5.0
     # Metrics
     START_METRICS: bool = False
     METRICS_PORT: int = 9000

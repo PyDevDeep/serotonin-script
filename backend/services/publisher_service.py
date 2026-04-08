@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import structlog
 
 from backend.models.enums import Platform
 from backend.services.exceptions import PublishingFailedError, UnsupportedPlatformError
+
+if TYPE_CHECKING:
+    from orchestration.monitoring.n8n_health_check import N8nHealthChecker
 
 logger = structlog.get_logger()
 
@@ -18,14 +24,36 @@ class SocialPublisher(ABC):
 
 
 class N8nPublisher(SocialPublisher):
-    """Delegates publishing to the n8n webhook orchestrator."""
+    """Delegates publishing to the n8n webhook orchestrator.
 
-    def __init__(self, webhook_url: str, platform: Platform) -> None:
+    Args:
+        webhook_url:    n8n webhook endpoint.
+        platform:       target social platform.
+        health_checker: optional circuit breaker; when provided, guard() is called
+                        before each request so failures are surfaced immediately
+                        instead of hanging until httpx timeout.
+    """
+
+    def __init__(
+        self,
+        webhook_url: str,
+        platform: Platform,
+        health_checker: N8nHealthChecker | None = None,
+    ) -> None:
         self._webhook_url = webhook_url
         self._platform = platform
+        self._health_checker = health_checker
 
     async def publish(self, post_id: str, content: str) -> None:
         import httpx
+
+        from orchestration.monitoring.n8n_health_check import N8nUnavailableError
+
+        if self._health_checker is not None:
+            try:
+                self._health_checker.guard()
+            except N8nUnavailableError as exc:
+                raise PublishingFailedError(self._platform, str(exc)) from exc
 
         payload = {
             "post_id": post_id,
