@@ -22,5 +22,6 @@ COPY . .
 
 RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd && rm -rf /var/lib/apt/lists/*
 
-RUN chown -R seratonin:seratonin /app
+RUN mkdir -p /app/cache/huggingface /app/cache/fastembed \
+    && chown -R seratonin:seratonin /app
 USER seratonin
