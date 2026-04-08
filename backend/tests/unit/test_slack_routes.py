@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient
 from httpx import Response
 
 from backend.api.main import create_app
+from backend.api.middleware.auth import verify_slack_signature
 from backend.models.db_models import Draft
 from backend.models.enums import DraftStatus
 from backend.workers.dependencies import get_db_session
@@ -32,6 +33,15 @@ from backend.workers.dependencies import get_db_session
 # ---------------------------------------------------------------------------
 # App + dependency override
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _no_rate_limit(monkeypatch):  # type: ignore[reportUnusedFunction]
+    """Bypass Redis-backed rate limiter for all Slack route tests."""
+    monkeypatch.setattr(
+        "backend.api.routes.feedback.check_rate_limit",
+        AsyncMock(return_value=None),
+    )
 
 
 @pytest.fixture(scope="module")
@@ -56,7 +66,11 @@ def client(app, mock_session):
     async def override_get_db():
         yield mock_session
 
+    async def override_verify_slack_signature() -> None:
+        return None
+
     app.dependency_overrides[get_db_session] = override_get_db
+    app.dependency_overrides[verify_slack_signature] = override_verify_slack_signature
     with TestClient(app, raise_server_exceptions=True) as c:
         yield c
     app.dependency_overrides.clear()

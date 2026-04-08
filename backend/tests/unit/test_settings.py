@@ -29,6 +29,27 @@ _REQUIRED = {
 }
 
 
+_DEFAULTED = [
+    "POSTGRES_HOST",
+    "POSTGRES_PORT",
+    "EXTERNAL_POSTGRES_PORT",
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "EXTERNAL_REDIS_PORT",
+    "QDRANT_HOST",
+    "QDRANT_PORT",
+    "EXTERNAL_QDRANT_PORT",
+    "SLACK_BOT_TOKEN",
+    "SLACK_SIGNING_SECRET",
+    "SLACK_LOG_CHANNEL",
+    "LLM_COST_THRESHOLD_CHARS",
+    "N8N_WEBHOOK_URL",
+    "N8N_HEALTH_URL",
+    "START_METRICS",
+    "METRICS_PORT",
+]
+
+
 def _make(
     monkeypatch: pytest.MonkeyPatch,
     extra: dict[str, str] | None = None,
@@ -37,11 +58,16 @@ def _make(
     """
     Build a Settings instance with .env disabled (_env_file=None).
     Sets the minimum required env vars plus any extras, optionally removing one.
+    Clears defaulted fields from os.environ so .env values don't bleed through.
     """
     env: dict[str, str] = {**_REQUIRED, **(extra or {})}
     if drop:
         env.pop(drop, None)
         monkeypatch.delenv(drop, raising=False)
+    # Remove any defaulted fields not explicitly set, so .env doesn't bleed through
+    for key in _DEFAULTED:
+        if key not in env:
+            monkeypatch.delenv(key, raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
     return Settings(_env_file=None)  # type: ignore[call-arg]
