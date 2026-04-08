@@ -36,7 +36,7 @@ def get_llm_router() -> LLMRouter:
 
 def get_style_matcher() -> StyleMatcher:
     """Initialise and return the style matcher service."""
-    retriever = HybridRetrieverPipeline(collection_name="doctor_style", top_k=5)
+    retriever = HybridRetrieverPipeline.build(collection_name="doctor_style", top_k=5)
     return StyleMatcher(retriever=retriever)
 
 
@@ -44,7 +44,9 @@ def get_fact_checker(
     llm_router: Annotated[LLMRouter, TaskiqDepends(get_llm_router)],
 ) -> FactChecker:
     """Initialise the fact-checker service with all required infrastructure dependencies."""
-    retriever = HybridRetrieverPipeline(collection_name="medical_knowledge", top_k=2)
+    retriever = HybridRetrieverPipeline.build(
+        collection_name="medical_knowledge", top_k=2
+    )
     return FactChecker(
         retriever=retriever,
         pubmed=PubMedClient(),

@@ -46,15 +46,20 @@ async def domain_exception_handler(request: Request, exc: Exception) -> JSONResp
     if isinstance(exc, UnsupportedPlatformError):
         return _problem(
             request,
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "Unsupported Platform",
             str(exc),
             {"platform": exc.platform},
         )
     if isinstance(exc, PublishingFailedError):
+        from backend.models.enums import Platform
+
+        platform_str = (
+            exc.platform.value if isinstance(exc.platform, Platform) else exc.platform
+        )
         logger.error(
             "publishing_failed",
-            platform=str(exc.platform),
+            platform=platform_str,
             reason=exc.reason,
             path=request.url.path,
         )
@@ -63,7 +68,7 @@ async def domain_exception_handler(request: Request, exc: Exception) -> JSONResp
             status.HTTP_502_BAD_GATEWAY,
             "Publishing Failed",
             str(exc),
-            {"platform": str(exc.platform)},
+            {"platform": platform_str},
         )
     # Catch-all for any future DomainError subclasses
     logger.error("unhandled_domain_error", error=str(exc), path=request.url.path)

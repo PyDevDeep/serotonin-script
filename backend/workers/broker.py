@@ -3,7 +3,11 @@ from typing import Any
 from prometheus_client import start_http_server
 from taskiq import TaskiqEvents, TaskiqScheduler
 from taskiq.schedule_sources import LabelScheduleSource
-from taskiq_redis import ListQueueBroker, RedisAsyncResultBackend, RedisScheduleSource
+from taskiq_redis import (
+    ListQueueBroker,
+    ListRedisScheduleSource,
+    RedisAsyncResultBackend,
+)
 
 from backend.config.settings import settings
 from backend.utils.logging import setup_logging
@@ -40,7 +44,7 @@ async def start_metrics_server(_state: Any) -> None:
 
 
 # Initialise the scheduler with label and Redis sources
-redis_source = RedisScheduleSource(redis_url)
+redis_source = ListRedisScheduleSource(redis_url)
 scheduler = TaskiqScheduler(
     broker=broker,
     sources=[LabelScheduleSource(broker), redis_source],
