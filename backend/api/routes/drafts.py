@@ -2,9 +2,10 @@ import asyncio
 from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from backend.api.dependencies import get_draft_repository
+from backend.api.middleware.rate_limit import GENERATE_RATE_LIMIT, check_rate_limit
 from backend.models.schemas import (
     DraftCreate,
     DraftGenerateRequest,
@@ -22,7 +23,8 @@ router = APIRouter(prefix="/draft", tags=["Drafts"])
 
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 async def create_draft(
-    request: DraftGenerateRequest,
+    request: Request,
+    body: DraftGenerateRequest,
     draft_repo: Annotated[DraftRepository, Depends(get_draft_repository)],
 ):
     """
@@ -30,16 +32,17 @@ async def create_draft(
     2. Dispatch a background generation task to Taskiq.
     3. Return the task_id to the client.
     """
+    await check_rate_limit(request, GENERATE_RATE_LIMIT)
     draft_in = DraftCreate(
-        topic=request.topic, user_id=request.user_id, platform=request.platform
+        topic=body.topic, user_id=body.user_id, platform=body.platform
     )
     await draft_repo.create(draft_in)
 
     # Dispatch background task
     task: Any = await generate_draft_task.kiq(  # type: ignore[reportCallIssue]
-        topic=request.topic,
-        platform=request.platform.value,
-        source_url=request.source_url,
+        topic=body.topic,
+        platform=body.platform.value,
+        source_url=body.source_url,
     )
     # TODO у майбутньому: оновити draft у БД, додавши йому task_id
     return TaskResponse(

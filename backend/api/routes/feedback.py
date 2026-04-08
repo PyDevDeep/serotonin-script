@@ -12,6 +12,8 @@ import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.middleware.auth import verify_slack_signature
+from backend.api.middleware.rate_limit import SLACK_RATE_LIMIT, check_rate_limit
 from backend.config.lexicon import SLACK_UI
 from backend.config.settings import settings
 from backend.models.enums import DraftStatus
@@ -26,12 +28,17 @@ from slack_app.handlers.interactions import (
 from slack_app.handlers.slash_commands import handle_slash_command
 
 logger = structlog.get_logger()
-router = APIRouter(prefix="/slack", tags=["Slack Integration"])
+router = APIRouter(
+    prefix="/slack",
+    tags=["Slack Integration"],
+    dependencies=[Depends(verify_slack_signature)],
+)
 
 
 @router.post("/commands", response_model=None)
 async def slack_slash_command(request: Request) -> dict[str, str] | Response:
     """Handle Slack slash commands and open the draft generation modal."""
+    await check_rate_limit(request, SLACK_RATE_LIMIT)
     return await handle_slash_command(request)
 
 
@@ -41,6 +48,7 @@ async def slack_interactions(
     session: AsyncSession = Depends(get_db_session),  # noqa: B008
 ) -> Response:
     """Dispatch Slack block_actions and view_submission interaction payloads."""
+    await check_rate_limit(request, SLACK_RATE_LIMIT)
     form_data = await request.form()
     payload_str = form_data.get("payload")
 
