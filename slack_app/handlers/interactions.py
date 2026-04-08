@@ -360,16 +360,28 @@ async def _handle_generate_draft_modal(
         selected_option.get("value", "telegram") if selected_option else "telegram"
     )
 
+    source_url = (
+        state_values.get("block_source_url", {})
+        .get("input_source_url", {})
+        .get("value")
+        or None
+    )
+
     logger.info(
         "slack_generation_modal_submitted",
         user_id=user_id,
         topic=topic,
         platform=platform,
+        source_url=source_url,
     )
 
     draft_service = DraftService(session)
     await draft_service.generate_draft_from_slack(
-        user_id=user_id, topic=topic, platform=platform, channel_id=channel_id
+        user_id=user_id,
+        topic=topic,
+        platform=platform,
+        channel_id=channel_id,
+        source_url=source_url,
     )
 
     slack_token = (
