@@ -29,7 +29,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-
+.claude/
 # IDE
 .vscode/
 .idea/
