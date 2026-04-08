@@ -34,6 +34,10 @@ services:
       - QDRANT_HOST=qdrant
       - START_METRICS=true
       - METRICS_PORT=9000
+      - HF_HOME=/app/cache/huggingface
+      - FASTEMBED_CACHE_PATH=/app/cache/fastembed
+    volumes:
+      - model_cache:/app/cache
     ports:
       - "9000:9000"
     depends_on:
@@ -59,3 +63,6 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  model_cache:
