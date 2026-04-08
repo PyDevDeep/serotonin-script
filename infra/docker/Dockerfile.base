@@ -12,6 +12,7 @@ RUN poetry export -f requirements.txt --output requirements.txt --without dev
 FROM python:3.13-slim
 
 WORKDIR /app
+ENV PYTHONPATH=/app
 
 RUN groupadd -r seratonin && useradd -r -g seratonin seratonin
 
