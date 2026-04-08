@@ -14,9 +14,8 @@ def build_draft_card(
 ) -> list[dict[str, Any]]:
     """Генерує картку чернетки з кнопками дій. Якщо is_valid=False, додає попередження."""
 
-    header_text = (
-        f"{SLACK_UI['draft_ready_header'].format(topic=topic)} | 📢 {platform.upper()}"
-    )
+    topic_short = topic[:100] if len(topic) > 100 else topic
+    header_text = f"{SLACK_UI['draft_ready_header'].format(topic=topic_short)} | 📢 {platform.upper()}"
     if not is_valid:
         header_text = SLACK_UI["validation_failed_header"].format(
             platform=platform.upper()
@@ -320,6 +319,25 @@ def build_generation_modal(channel_id: str) -> dict[str, Any]:
                 "label": {
                     "type": "plain_text",
                     "text": SLACK_UI["gen_modal_platform_label"],
+                    "emoji": True,
+                },
+            },
+            {
+                "type": "input",
+                "block_id": "block_source_url",
+                "optional": True,
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "input_source_url",
+                    "multiline": False,
+                    "placeholder": {
+                        "type": "plain_text",
+                        "text": SLACK_UI["gen_modal_url_placeholder"],
+                    },
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": SLACK_UI["gen_modal_url_label"],
                     "emoji": True,
                 },
             },
