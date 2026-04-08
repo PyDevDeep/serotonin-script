@@ -1,1 +1,51 @@
-// infra/monitoring/grafana/dashboards/backend_metrics.json
+{
+  "title": "Serotonin Backend & Worker Metrics",
+  "timezone": "browser",
+  "refresh": "10s",
+  "panels": [
+    {
+      "title": "Worker Task Logs (Live)",
+      "type": "logs",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "{container=~\\\".*worker.*\\\"} | json",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true
+      }
+    },
+    {
+      "title": "Task Execution Time (Average per minute)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "targets": [
+        {
+          "expr": "avg_over_time({container=~\\\".*worker.*\\\"} | json | unwrap execution_time_sec [1m])",
+          "refId": "A",
+          "legendFormat": "Execution Time (sec)"
+        }
+      ],
+      "options": {
+        "tooltip": { "mode": "single", "sort": "none" }
+      }
+    },
+    {
+      "title": "Errors Rate (Backend & Worker)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "targets": [
+        {
+          "expr": "sum(rate({container=~\\\".*serotonin_script.*\\\", level=\\\"error\\\"}[5m])) by (container)",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 38
+}
