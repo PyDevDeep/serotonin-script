@@ -1,0 +1,52 @@
+{
+  "name": "Seratonin Error Handler [Template]",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [-416, -48],
+      "id": "error-trigger-id",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-internal-api.com/api/v1/slack/error",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "post_id",
+              "value": "={{ $json.execution.error.node.input.body.post_id }}"
+            },
+            {
+              "name": "platform",
+              "value": "={{ $json.execution.error.node.name.toLowerCase().includes('threads') ? 'threads' : 'telegram' }}"
+            },
+            {
+              "name": "error_message",
+              "value": "={{ $json.execution.error.message }}"
+            },
+            {
+              "name": "user_id",
+              "value": "={{ $json.execution.error.node.parameters.queryParameters.parameters[1].value || \"\" }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-208, -48],
+      "id": "error-http-request-id",
+      "name": "Notify Error Slack"
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [[{ "node": "Notify Error Slack", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

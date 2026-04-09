@@ -1,0 +1,180 @@
+{
+  "name": "Main Publisher [Template]",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "publish-post",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-784, -240],
+      "id": "webhook-node-id",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.platform }}",
+                    "rightValue": "telegram",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.platform }}",
+                    "rightValue": "twitter",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.platform }}",
+                    "rightValue": "threads",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [-608, -256],
+      "id": "switch-node-id",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.body.content }}",
+        "additionalFields": { "appendAttribution": false }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-368, -432],
+      "id": "telegram-node-id",
+      "name": "Send Telegram Message",
+      "credentials": {
+        "telegramApi": {
+          "id": "select-your-telegram-credential",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-api-domain.com/api/v1/confirm",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "post_id",
+              "value": "={{ $('Webhook').item.json.body.post_id }}"
+            },
+            {
+              "name": "platform",
+              "value": "={{ $('Webhook').item.json.body.platform }}"
+            },
+            {
+              "name": "content",
+              "value": "={{ $('Webhook').item.json.body.content }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [160, -288],
+      "id": "http-confirm-id",
+      "name": "Confirm Publication"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.threads.net/v1.0/YOUR_THREADS_USER_ID/threads",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "media_type", "value": "TEXT" },
+            { "name": "text", "value": "={{ $json.body.content }}" },
+            { "name": "access_token", "value": "YOUR_THREADS_ACCESS_TOKEN" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-352, -80],
+      "id": "threads-create-id",
+      "name": "Threads: Create Container"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://graph.threads.net/v1.0/YOUR_THREADS_USER_ID/threads_publish",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "creation_id", "value": "={{ $json.id }}" },
+            { "name": "access_token", "value": "YOUR_THREADS_ACCESS_TOKEN" }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-160, -80],
+      "id": "threads-publish-id",
+      "name": "Threads: Publish"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Switch", "type": "main", "index": 0 }]] },
+    "Switch": {
+      "main": [
+        [{ "node": "Send Telegram Message", "type": "main", "index": 0 }],
+        [],
+        [{ "node": "Threads: Create Container", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Telegram Message": {
+      "main": [[{ "node": "Confirm Publication", "type": "main", "index": 0 }]]
+    },
+    "Threads: Create Container": {
+      "main": [[{ "node": "Threads: Publish", "type": "main", "index": 0 }]]
+    },
+    "Threads: Publish": {
+      "main": [[{ "node": "Confirm Publication", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}
