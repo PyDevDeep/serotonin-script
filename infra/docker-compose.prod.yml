@@ -18,7 +18,12 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/api/v1/health')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
   worker:
     build:
       context: .
@@ -43,7 +48,11 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9000/metrics')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
   scheduler:
     build:
       context: .
