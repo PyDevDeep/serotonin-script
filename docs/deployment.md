@@ -187,7 +187,7 @@ bash scripts/deploy.sh
 # Step 1: Tear down existing app containers (preserves volumes)
 docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml down --remove-orphans
 
-# Step 2: Build new images
+# Step 2: Pull latest images from GHCR (built by build.yml) + rebuild if needed as fallback
 docker compose -f docker-compose.yml -f infra/docker-compose.prod.yml up -d --build
 
 # Step 3: Start database services and wait for health checks
@@ -236,16 +236,38 @@ See `orchestration/n8n/credentials/README.md` for the full credential setup guid
 
 ---
 
-## CI/CD Status
+## CI/CD Pipeline
 
 | Workflow | Status | Trigger |
 |----------|--------|---------|
 | Lint (Ruff + Pyright) | ✅ Active | Push / PR → `main` |
 | Tests (pytest) | ✅ Active | Push / PR → `main` |
-| Build (Docker image) | 🚧 Stub | `workflow_dispatch` only |
-| Deploy (automated) | 🚧 Stub | `workflow_dispatch` only |
+| Build & Push to GHCR | ✅ Active | Push → `main` |
+| Deploy via SSH | ✅ Active | On `Build and Push` success |
 
-Automated build and deploy pipelines are pending Docker registry configuration and target server SSH setup. Until then, deploy manually via `scripts/deploy.sh`.
+### How automated deploy works
+
+1. Push to `main` triggers `build.yml` in parallel with lint and tests
+2. `build.yml` builds three Docker image targets (`backend`, `worker`, `scheduler`) from `infra/docker/Dockerfile` using matrix strategy and pushes to GHCR:
+   ```
+   ghcr.io/<owner>/serotonin_script-backend:latest   (+ :<sha>)
+   ghcr.io/<owner>/serotonin_script-worker:latest    (+ :<sha>)
+   ghcr.io/<owner>/serotonin_script-scheduler:latest (+ :<sha>)
+   ```
+3. On `build.yml` success, `deploy.yml` SSHes into the VPS and runs:
+   ```bash
+   cd ~/SEROTONIN_SCRIPT && git pull origin main && bash scripts/deploy.sh
+   ```
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `SERVER_HOST` | VPS IP or hostname |
+| `SERVER_USER` | SSH user on the VPS |
+| `SERVER_SSH_KEY` | Private SSH key (ED25519 or RSA) |
+
+`GITHUB_TOKEN` for GHCR write access is the built-in Actions token — no manual secret required.
 
 ---
 

@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.13-blue.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)
 ![Taskiq](https://img.shields.io/badge/Taskiq-0.11+-orange.svg)
-![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen.svg)
+![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg)
 ![Lint](https://img.shields.io/badge/lint-Ruff%20%7C%20Pyright-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
@@ -242,7 +242,7 @@ alembic upgrade head
 
 ## ✅ Test Coverage
 
-**Overall: 97% (4394 statements, 148 missed)**
+**Overall: 98% (4627 statements, 103 missed)**
 
 | Module | Coverage |
 |--------|----------|
@@ -250,6 +250,8 @@ alembic upgrade head
 | `services/draft_service.py` | 100% |
 | `services/fact_checker.py` | 100% |
 | `services/style_matcher.py` | 100% |
+| `api/middleware/auth.py` | 100% |
+| `api/middleware/error_handler.py` | 100% |
 | `integrations/external/pubmed_client.py` | 100% |
 | `integrations/llm/router.py` | 100% |
 | `rag/pipelines/hybrid_search.py` | 100% |
@@ -258,14 +260,13 @@ alembic upgrade head
 | `workers/tasks/generate_draft.py` | 100% |
 | `workers/tasks/publish_post.py` | 100% |
 | `workers/callbacks.py` | 100% |
-| `api/middleware/error_handler.py` | 100% |
 | `api/routes/feedback.py` | 96% |
+| `api/middleware/rate_limit.py` | 91% |
 | `services/publisher_service.py` | 91% |
-| `workers/broker.py` | 80% |
-| `api/middleware/auth.py` | 33% |
-| `api/middleware/rate_limit.py` | 40% |
+| `api/routes/drafts.py` | 40% |
+| `integrations/external/web_scraper.py` | 38% |
 
-> Low coverage in `auth.py` (33%) and `rate_limit.py` (40%) reflects untested Slack signature verification edge cases and Redis sliding-window boundary conditions — these are integration-test candidates.
+> `api/routes/drafts.py` (40%) and `web_scraper.py` (38%) are the remaining gaps — route integration tests and scraper HTTP mocking are the next testing targets.
 
 ---
 
@@ -304,16 +305,25 @@ Prometheus alert rules configured for:
 
 ## ⚙️ CI/CD
 
-Three GitHub Actions workflows run on every push and pull request to `main`:
+Four GitHub Actions workflows form a fully automated pipeline triggered on push to `main`:
 
 | Workflow | Trigger | What it does |
 |----------|---------|-------------|
 | `lint.yml` | push / PR → `main` | Ruff linter, Ruff formatter check, Pyright type checker |
 | `test.yml` | push / PR → `main` | `poetry install` → `cp .env.example .env` → `pytest` |
-| `build.yml` | `workflow_dispatch` only | Stub — Docker image build not yet automated |
-| `deploy.yml` | `workflow_dispatch` only | Stub — automated deployment not yet implemented |
+| `build.yml` | push → `main` | Builds and pushes 3 Docker images to GHCR (`backend`, `worker`, `scheduler`) tagged `latest` + commit SHA |
+| `deploy.yml` | on `build.yml` success | SSH into VPS → `git pull origin main` → `bash scripts/deploy.sh` |
 
-Linting and tests are blocking checks on PRs. Build and deploy pipelines are manual stubs pending a Docker registry and target server configuration.
+**Pipeline flow on every merge to `main`:**
+```
+push → main
+  ├─► lint.yml     (parallel)
+  ├─► test.yml     (parallel)
+  └─► build.yml    → pushes ghcr.io/<owner>/serotonin_script-{backend,worker,scheduler}
+                         └─► deploy.yml  → SSH → git pull → deploy.sh
+```
+
+`deploy.yml` runs **only** if `build.yml` concluded with `success` (`if: github.event.workflow_run.conclusion == 'success'`). Required GitHub Secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
 
 ---
 
