@@ -52,6 +52,8 @@ SLACK_UI = {
     "home_drafts_empty": "_Поки що немає жодного драфту._",
     "home_draft_card_text": "*{topic}*\nПлатформа: *{platform}* | Статус: {status_emoji} `{status}`",
     "home_draft_open_btn": "📝 Відкрити",
+    "home_draft_delete_btn": "🗑 Видалити",
+    "interact_deleted_text": "🗑 Драфт видалено.",
     "home_btn_next_page": "Наступні →",
     "home_btn_prev_page": "← Попередні",
     "status_emoji_pending": "⏳",

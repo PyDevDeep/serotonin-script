@@ -64,6 +64,15 @@ class DraftRepository:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def delete(self, draft_id: int) -> bool:
+        """Delete a Draft by primary key. Returns True if a record was deleted."""
+        draft = await self.get_by_id(draft_id)
+        if draft is None:
+            return False
+        await self.session.delete(draft)
+        await self.session.flush()
+        return True
+
     async def get_due_scheduled_drafts(self) -> list[Draft]:
         """Return all scheduled drafts whose publication time has arrived."""
         now = datetime.now(timezone.utc)

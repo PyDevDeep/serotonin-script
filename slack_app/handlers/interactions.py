@@ -217,6 +217,25 @@ async def _handle_edit_draft(ctx: BlockActionContext) -> Response:
     return Response(status_code=200)
 
 
+async def _handle_delete_draft(ctx: BlockActionContext) -> Response:
+    draft_id = ctx["action_value"]
+    repo = DraftRepository(ctx["session"])
+    if draft_id.isdigit():
+        await repo.delete(int(draft_id))
+
+    user_id = ctx["user_id"]
+    drafts = await repo.get_recent_drafts(limit=10, offset=0)
+    home_view = build_app_home(drafts=drafts, offset=0)
+
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            "https://slack.com/api/views.publish",
+            headers=_slack_headers(),
+            json={"user_id": user_id, "view": home_view},
+        )
+    return Response(status_code=200)
+
+
 async def _handle_regenerate_draft(ctx: BlockActionContext) -> Response:
     draft_id, platform = _parse_draft_value(ctx["action_value"])
     payload = ctx["payload"]
@@ -244,6 +263,7 @@ async def _handle_regenerate_draft(ctx: BlockActionContext) -> Response:
 BLOCK_ACTION_HANDLERS: dict[
     str, Any  # Callable[[BlockActionContext], Awaitable[Response]]
 ] = {
+    "action_delete_draft": _handle_delete_draft,
     "action_open_upload_modal": _handle_open_upload_modal,
     "action_open_manual_post_modal": _handle_open_manual_post_modal,
     "action_home_drafts_prev": _handle_home_pagination,

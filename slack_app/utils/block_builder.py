@@ -523,16 +523,34 @@ def build_app_home(
                             status=d.status,
                         ),
                     },
-                    "accessory": {
-                        "type": "button",
-                        "text": {
-                            "type": "plain_text",
-                            "text": SLACK_UI["home_draft_open_btn"],
-                            "emoji": True,
+                }
+            )
+            blocks.append(
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": SLACK_UI["home_draft_open_btn"],
+                                "emoji": True,
+                            },
+                            "value": f"{d.id}|{d.platform}",
+                            "action_id": "action_open_draft_details",
                         },
-                        "value": f"{d.id}|{d.platform}",
-                        "action_id": "action_open_draft_details",
-                    },
+                        {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": SLACK_UI["home_draft_delete_btn"],
+                                "emoji": True,
+                            },
+                            "style": "danger",
+                            "value": str(d.id),
+                            "action_id": "action_delete_draft",
+                        },
+                    ],
                 }
             )
 
