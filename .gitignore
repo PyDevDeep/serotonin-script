@@ -4,7 +4,8 @@ knowledge_base/medical_guidelines
 test_output.txt
 AGENTS.md
 n8nac-config.json
-workflows
+personal\n8n-workflows.d.ts
+personal\tsconfig.json
 # Python
 __pycache__/
 *.py[cod]
