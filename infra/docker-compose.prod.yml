@@ -1,9 +1,6 @@
 services:
   backend:
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.base
-    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8001 --workers 2
+    image: ghcr.io/pydevdeep/serotonin-script-backend:latest
     env_file: .env
     environment:
       - POSTGRES_HOST=postgres
@@ -11,7 +8,7 @@ services:
       - QDRANT_HOST=qdrant
       - START_METRICS=false
     ports:
-      - "8001:8001"  
+      - "8001:8001"
     depends_on:
       postgres:
         condition: service_healthy
@@ -24,11 +21,9 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
   worker:
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.base
-    command: taskiq worker backend.workers.broker:broker backend.workers.tasks
+    image: ghcr.io/pydevdeep/serotonin-script-worker:latest
     env_file: .env
     environment:
       - POSTGRES_HOST=postgres
@@ -53,11 +48,9 @@ services:
       interval: 15s
       timeout: 5s
       retries: 3
+
   scheduler:
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.base
-    command: taskiq scheduler backend.workers.broker:scheduler backend.workers.tasks
+    image: ghcr.io/pydevdeep/serotonin-script-scheduler:latest
     env_file: .env
     environment:
       - REDIS_HOST=redis
