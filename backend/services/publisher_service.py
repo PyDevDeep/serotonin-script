@@ -4,10 +4,15 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
+import httpx
 import structlog
 
 from backend.models.enums import Platform
-from backend.services.exceptions import PublishingFailedError, UnsupportedPlatformError
+from backend.services.exceptions import (
+    ContentTooLongError,
+    PublishingFailedError,
+    UnsupportedPlatformError,
+)
 
 if TYPE_CHECKING:
     from orchestration.monitoring.n8n_health_check import N8nHealthChecker
@@ -21,6 +26,12 @@ class SocialPublisher(ABC):
     @abstractmethod
     async def publish(self, post_id: str, content: str) -> None:
         """Publish content. Raise PublishingFailedError on failure."""
+
+
+PLATFORM_CHAR_LIMITS: dict[Platform, int] = {
+    Platform.THREADS: 500,
+    Platform.TWITTER: 280,
+}
 
 
 class N8nPublisher(SocialPublisher):
@@ -45,7 +56,9 @@ class N8nPublisher(SocialPublisher):
         self._health_checker = health_checker
 
     async def publish(self, post_id: str, content: str) -> None:
-        import httpx
+        limit = PLATFORM_CHAR_LIMITS.get(self._platform)
+        if limit is not None and len(content) > limit:
+            raise ContentTooLongError(self._platform, limit, len(content))
 
         from orchestration.monitoring.n8n_health_check import N8nUnavailableError
 

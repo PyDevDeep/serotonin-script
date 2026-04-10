@@ -28,3 +28,15 @@ class UnsupportedPlatformError(DomainError):
     def __init__(self, platform: str) -> None:
         super().__init__(f"No publisher registered for platform '{platform}'.")
         self.platform = platform
+
+
+class ContentTooLongError(DomainError):
+    """Raised when content exceeds the platform's character limit."""
+
+    def __init__(self, platform: Platform | str, limit: int, actual: int) -> None:
+        super().__init__(
+            f"Content too long for '{platform}': limit {limit}, got {actual}."
+        )
+        self.platform = platform
+        self.limit = limit
+        self.actual = actual
