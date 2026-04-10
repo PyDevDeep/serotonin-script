@@ -48,9 +48,10 @@ async def index_collection(collection_name: str, data_dir: str):
     )
 
     # 3. Connect to Qdrant (local tunnel / host)
+    qdrant_host = os.environ.get("QDRANT_HOST", "127.0.0.1")
     qdrant_port = int(os.environ.get("EXTERNAL_QDRANT_PORT", 6333))
-    client = AsyncQdrantClient(host="127.0.0.1", port=qdrant_port)
-    sync_client = QdrantClient(host="127.0.0.1", port=qdrant_port)
+    client = AsyncQdrantClient(host=qdrant_host, port=qdrant_port)
+    sync_client = QdrantClient(host=qdrant_host, port=qdrant_port)
 
     vector_store = QdrantVectorStore(
         collection_name=collection_name,
