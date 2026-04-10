@@ -12,8 +12,16 @@ import httpx
 import pytest
 
 from backend.models.enums import Platform
-from backend.services.exceptions import PublishingFailedError, UnsupportedPlatformError
-from backend.services.publisher_service import N8nPublisher, PublisherService
+from backend.services.exceptions import (
+    ContentTooLongError,
+    PublishingFailedError,
+    UnsupportedPlatformError,
+)
+from backend.services.publisher_service import (
+    PLATFORM_CHAR_LIMITS,
+    N8nPublisher,
+    PublisherService,
+)
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -158,3 +166,78 @@ class TestN8nPublisher:
                 await publisher.publish("post-1", "text")
 
         assert "network unreachable" in exc_info.value.reason
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("platform", [Platform.THREADS, Platform.TWITTER])
+    async def test_content_at_limit_is_allowed(self, platform: Platform) -> None:
+        publisher = N8nPublisher(
+            webhook_url="http://n8n:5678/webhook/publish-post",
+            platform=platform,
+        )
+        limit = PLATFORM_CHAR_LIMITS[platform]
+        content = "x" * limit
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post.return_value = mock_response
+            mock_client_cls.return_value = mock_client
+
+            await publisher.publish("post-1", content)  # must not raise
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("platform", [Platform.THREADS, Platform.TWITTER])
+    async def test_content_over_limit_raises_content_too_long(
+        self, platform: Platform
+    ) -> None:
+        publisher = N8nPublisher(
+            webhook_url="http://n8n:5678/webhook/publish-post",
+            platform=platform,
+        )
+        limit = PLATFORM_CHAR_LIMITS[platform]
+        content = "x" * (limit + 1)
+
+        with pytest.raises(ContentTooLongError) as exc_info:
+            await publisher.publish("post-1", content)
+
+        assert exc_info.value.platform == platform
+        assert exc_info.value.limit == limit
+        assert exc_info.value.actual == limit + 1
+
+    @pytest.mark.asyncio
+    async def test_content_too_long_does_not_call_http(self) -> None:
+        publisher = N8nPublisher(
+            webhook_url="http://n8n:5678/webhook/publish-post",
+            platform=Platform.THREADS,
+        )
+        content = "x" * 501
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            with pytest.raises(ContentTooLongError):
+                await publisher.publish("post-1", content)
+
+        mock_client_cls.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_telegram_has_no_char_limit(self) -> None:
+        publisher = N8nPublisher(
+            webhook_url="http://n8n:5678/webhook/publish-post",
+            platform=Platform.TELEGRAM,
+        )
+        content = "x" * 5000
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+
+        with patch("httpx.AsyncClient") as mock_client_cls:
+            mock_client = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=False)
+            mock_client.post.return_value = mock_response
+            mock_client_cls.return_value = mock_client
+
+            await publisher.publish("post-1", content)  # must not raise
